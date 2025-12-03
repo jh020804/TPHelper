@@ -1,0 +1,123 @@
+.kanban-board-container {
+    max-width: 1400px;
+    margin: 0 auto;
+    position: relative; /* 삭제 버튼 배치를 위해 */
+}
+
+/* --- ‼️ (추가) 프로젝트 컨트롤 영역 --- */
+.project-controls {
+    display: flex;
+    justify-content: flex-end; /* 오른쪽 정렬 */
+    margin-bottom: 10px;
+    padding-right: 5px;
+}
+
+.btn-delete-project {
+    background-color: #dc3545; /* 빨간색 */
+    color: white;
+    border: none;
+    padding: 8px 15px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: bold;
+    font-size: 0.9rem;
+    transition: background-color 0.2s;
+}
+
+.btn-delete-project:hover {
+    background-color: #c82333;
+}
+/* -------------------------------- */
+
+.kanban-board {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr); 
+    gap: 20px;
+}
+
+.kanban-column {
+    background-color: #f4f5f7;
+    border-radius: 8px;
+    padding: 15px;
+    min-height: 400px;
+}
+
+.kanban-column h3 {
+    margin-top: 0;
+    padding-bottom: 10px;
+    border-bottom: 2px solid #ddd;
+}
+
+.kanban-card {
+    background-color: #fff;
+    border-radius: 4px;
+    padding: 15px;
+    margin-bottom: 10px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    cursor: pointer;
+    transition: box-shadow 0.2s;
+}
+.kanban-card:hover {
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+.kanban-card p {
+    margin: 0 0 10px 0;
+    word-break: break-word;
+}
+
+.card-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.85rem;
+    color: #555;
+}
+.card-due-date {
+    background-color: #f0f0f0;
+    padding: 3px 6px;
+    border-radius: 4px;
+}
+.card-assignee {
+    font-weight: 600;
+}
+
+.add-task-form {
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 15px;
+}
+.add-task-form textarea {
+    flex-grow: 1; 
+    padding: 8px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    resize: vertical;
+    min-height: 60px;
+    font-size: 1rem;
+    margin-bottom: 8px;
+}
+.task-form-extras {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 8px;
+}
+.task-form-extras input[type="date"],
+.task-form-extras select {
+    width: 50%;
+    padding: 6px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 0.9rem;
+    box-sizing: border-box;
+}
+.add-task-form button {
+    padding: 8px 12px;
+    background-color: #007bff;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 1rem;
+    font-weight: 600;
+}

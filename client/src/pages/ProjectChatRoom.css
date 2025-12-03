@@ -1,0 +1,172 @@
+.chat-room-container {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    width: 100%;
+    margin: -20px; 
+}
+
+.message-list {
+    flex-grow: 1;
+    overflow-y: auto;
+    padding: 20px;
+    background-color: #ffffff;
+}
+
+/* --- 날짜 구분선 --- */
+.date-separator {
+    text-align: center;
+    margin: 20px 0;
+}
+.date-separator span {
+    background-color: #f1f0f0;
+    color: #888;
+    font-size: 0.8rem;
+    padding: 5px 15px;
+    border-radius: 15px;
+}
+
+/* ‼️ 이 부분은 'div'이므로 기본 100% 너비를 가집니다 */
+.message-item {
+    display: flex;
+    align-items: flex-end;
+    margin-bottom: 2px;
+}
+
+.message-item:not(.is-grouped) {
+    margin-top: 15px;
+}
+
+.message-body {
+    max-width: 70%;
+    display: flex;
+    flex-direction: column;
+}
+
+.message-sender {
+    font-weight: bold;
+    font-size: 0.9rem;
+    color: #333;
+    display: block;
+    margin-bottom: 4px;
+    margin-left: 5px;
+}
+
+.message-content {
+    background-color: #f1f0f0;
+    padding: 10px 15px;
+    border-radius: 18px;
+    display: inline-block;
+    margin: 0;
+    word-break: break-word;
+}
+
+.message-time {
+    font-size: 0.75rem;
+    color: #888;
+    margin: 0 5px;
+    padding-bottom: 2px;
+}
+
+/* --- ‼️ ‼️ ‼️ ‼️ ‼️ --- */
+/* --- 이 CSS 규칙이 적용되지 않고 있습니다 --- */
+
+/* ‼️ 상대방 메시지 (왼쪽 정렬) */
+.message-item.other-message {
+    justify-content: flex-start; /* ‼️ 왼쪽 정렬 */
+    flex-direction: row; /* [버블] [시간] 순서 */
+}
+.message-item.other-message .message-body {
+    align-items: flex-start;
+}
+.message-item.other-message .message-content {
+    background-color: #f1f0f0;
+    color: #000;
+    text-align: left;
+}
+
+/* ‼️ 본인 메시지 (오른쪽 정렬) */
+.message-item.my-message {
+    flex-direction: row-reverse; /* [시간] [버블] 순서 */
+}
+.message-item.my-message .message-content {
+    background-color: #007bff;
+    color: white;
+    text-align: left; 
+}
+/* ---------------------------------------------------- */
+
+
+/* 메시지 입력 폼 (동일) */
+.message-input-form {
+    display: flex;
+    padding: 20px;
+    border-top: 1px solid #ddd;
+    background-color: #f8f9fa;
+}
+.message-input-form input {
+    flex-grow: 1;
+    padding: 10px 15px;
+    border: 1px solid #ccc;
+    border-radius: 20px;
+    margin-right: 10px;
+    font-size: 1rem;
+}
+.message-input-form button {
+    padding: 10px 20px;
+    background-color: #007bff;
+    color: white;
+    border: none;
+    border-radius: 20px;
+    cursor: pointer;
+    font-weight: bold;
+}
+.chat-room-container { display: flex; flex-direction: column; height: 100%; width: 100%; margin: -20px; }
+.print-button { background-color: #6c757d; color: white; border: none; padding: 8px 15px; margin: -20px -20px 10px -20px; cursor: pointer; text-align: center; font-weight: bold; }
+.message-list { flex-grow: 1; overflow-y: auto; padding: 20px; background-color: #ffffff; }
+.date-separator { text-align: center; margin: 20px 0; }
+.date-separator span { background-color: #f1f0f0; color: #888; font-size: 0.8rem; padding: 5px 15px; border-radius: 15px; }
+.message-item { display: flex; align-items: flex-end; margin-bottom: 2px; }
+.message-item:not(.is-grouped) { margin-top: 15px; }
+.message-body { max-width: 70%; display: flex; flex-direction: column; }
+.message-sender { font-weight: bold; font-size: 0.9rem; color: #333; display: block; margin-bottom: 4px; margin-left: 5px; }
+.message-content { background-color: #f1f0f0; padding: 10px 15px; border-radius: 18px; display: inline-block; margin: 0; word-break: break-word; }
+.message-time { font-size: 0.75rem; color: #888; margin: 0 5px; padding-bottom: 2px; }
+.message-item.other-message { justify-content: flex-start; flex-direction: row; }
+.message-item.other-message .message-body { align-items: flex-start; }
+.message-item.other-message .message-content { background-color: #f1f0f0; color: #000; text-align: left; }
+.message-item.my-message { justify-content: flex-end; flex-direction: row-reverse; }
+.message-item.my-message .message-content { background-color: #007bff; color: white; text-align: left; }
+
+/* --- ‼️ (추가됨) 파일/이미지 스타일 --- */
+.chat-image {
+    max-width: 100%;
+    max-height: 300px;
+    border-radius: 10px;
+    display: block;
+}
+.chat-file-link {
+    text-decoration: none;
+    color: inherit; /* 부모(말풍선) 색상 따라감 */
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+.my-message .chat-file-link { color: white; }
+.other-message .chat-file-link { color: #007bff; }
+
+/* --- ‼️ (수정됨) 입력창 스타일 --- */
+.message-input-form { display: flex; padding: 20px; border-top: 1px solid #ddd; background-color: #f8f9fa; align-items: center; }
+.file-upload-btn {
+    background: none;
+    border: none;
+    font-size: 1.2rem;
+    color: #666;
+    cursor: pointer;
+    padding: 0 10px;
+    margin-right: 5px;
+}
+.file-upload-btn:hover { color: #333; }
+.message-input-form input[type="text"] { flex-grow: 1; padding: 10px 15px; border: 1px solid #ccc; border-radius: 20px; margin-right: 10px; font-size: 1rem; }
+.message-input-form button[type="submit"] { padding: 10px 20px; background-color: #007bff; color: white; border: none; border-radius: 20px; cursor: pointer; font-weight: bold; }

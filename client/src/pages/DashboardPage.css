@@ -1,0 +1,104 @@
+.dashboard-content {
+    padding: 20px;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+/* --- 탭 메뉴 --- */
+.dashboard-tabs {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+    border-bottom: 1px solid #ddd;
+}
+.tab-btn {
+    padding: 10px 20px;
+    background: none;
+    border: none;
+    font-size: 1rem;
+    font-weight: 600;
+    color: #666;
+    cursor: pointer;
+    position: relative;
+}
+.tab-btn.active {
+    color: #007bff;
+    border-bottom: 3px solid #007bff;
+}
+.new-badge {
+    background-color: #ff4444;
+    color: white;
+    border-radius: 50%;
+    padding: 2px 6px;
+    font-size: 0.7rem;
+    margin-left: 8px;
+    vertical-align: top;
+}
+
+/* --- 프로젝트 목록 (기존 유지) --- */
+.project-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 20px;
+}
+.project-card-link { text-decoration: none; color: inherit; }
+.project-card {
+    background-color: #fff;
+    border: 1px solid #e0e0e0;
+    border-radius: 12px;
+    padding: 25px;
+    min-height: 150px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.02);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+}
+.project-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+    border-color: #007bff;
+}
+.project-card h3 { margin: 0; font-size: 1.1rem; color: #333; }
+
+/* 새 프로젝트 카드 */
+.project-card.create-card { border: 2px dashed #ccc; background-color: #f9f9f9; color: #666; }
+.project-card.create-card:hover { border-color: #007bff; color: #007bff; background-color: #fff; }
+.create-placeholder { display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%; height: 100%; }
+.plus-icon { font-size: 2rem; margin-bottom: 10px; line-height: 1; }
+.card-form { width: 100%; display: flex; flex-direction: column; gap: 10px; }
+.card-form input { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 6px; text-align: center; box-sizing: border-box; }
+.card-actions { display: flex; gap: 5px; justify-content: center; }
+.btn-create, .btn-cancel { padding: 6px 12px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
+.btn-create { background-color: #007bff; color: white; }
+.btn-cancel { background-color: #e0e0e0; color: #333; }
+
+/* --- 초대 카드 목록 --- */
+.invitation-list {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+.invitation-card {
+    background-color: #fff;
+    border: 1px solid #ddd;
+    border-left: 5px solid #28a745; /* 초록색 강조 */
+    border-radius: 8px;
+    padding: 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+.invite-info h3 { margin: 0 0 5px 0; color: #333; }
+.invite-info p { margin: 0; color: #666; font-size: 0.9rem; }
+
+.invite-actions { display: flex; gap: 10px; }
+.btn-accept { background-color: #28a745; color: white; padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
+.btn-accept:hover { background-color: #218838; }
+.btn-decline { background-color: #dc3545; color: white; padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
+.btn-decline:hover { background-color: #c82333; }
+.no-invites { text-align: center; color: #888; margin-top: 30px; }
