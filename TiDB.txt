@@ -1,0 +1,11 @@
+HOST: gateway01.ap-northeast-1.prod.aws.tidbcloud.com
+
+PORT: 4000
+
+USERNAME: oNiAuAjyeSJQunM.root
+
+PASSWORD: flkt74lbrLzRqZCO
+
+DATABASE: test
+
+CA: <CA_PATH>

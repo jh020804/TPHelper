@@ -1,0 +1,10 @@
+vs code에서 server로 가서 node index.js
+cmd에서 npm start
+index.js 오류날 때
+// 4. 데이터베이스 연결 정보 (본인 정보로 수정!)
+const dbConfig = {
+    host: 'localhost',
+    user: 'root',
+    password: 'kh3285466', // ‼️ 이 부분을 실제 비밀번호로 수정하세요!
+    database: 'tphlper_db'
+};
