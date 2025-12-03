@@ -51,10 +51,10 @@ function ProjectChatRoom() {
         const token = localStorage.getItem('token');
         const fetchData = async () => {
             try {
-                const detailsRes = await axios.get(`http://localhost:3001/api/projects/${projectId}`, { headers: { Authorization: `Bearer ${token}` } });
+                const detailsRes = await axios.get(`https://api.render.com/deploy/srv-d4j6ctvgi27c739fo82g?key=g1U5dTGX6YA/api/projects/${projectId}`, { headers: { Authorization: `Bearer ${token}` } });
                 setHeaderTitle(`채팅: ${detailsRes.data.details.project.name}`);
                 setMembers(detailsRes.data.details.members);
-                const msgRes = await axios.get(`http://localhost:3001/api/projects/${projectId}/messages`, { headers: { Authorization: `Bearer ${token}` } });
+                const msgRes = await axios.get(`https://api.render.com/deploy/srv-d4j6ctvgi27c739fo82g?key=g1U5dTGX6YA/api/projects/${projectId}/messages`, { headers: { Authorization: `Bearer ${token}` } });
                 setMessages(msgRes.data.messages);
             } catch (e) { if (e.response && (e.response.status === 401 || e.response.status === 403)) navigate('/'); }
         };
@@ -89,7 +89,7 @@ function ProjectChatRoom() {
 
         try {
             const token = localStorage.getItem('token');
-            const res = await axios.post('http://localhost:3001/api/chat/upload', formData, {
+            const res = await axios.post('https://api.render.com/deploy/srv-d4j6ctvgi27c739fo82g?key=g1U5dTGX6YA/api/chat/upload', formData, {
                 headers: { 'Content-Type': 'multipart/form-data', Authorization: `Bearer ${token}` }
             });
 
@@ -158,12 +158,12 @@ function ProjectChatRoom() {
                                     <div className="message-content" style={bubbleStyle}>
                                         {msg.type === 'image' ? (
                                             <img 
-                                                src={`http://localhost:3001/${msg.message}`} 
+                                                src={`https://api.render.com/deploy/srv-d4j6ctvgi27c739fo82g?key=g1U5dTGX6YA/${msg.message}`} 
                                                 alt="채팅 이미지" 
                                                 className="chat-image" 
                                             />
                                         ) : msg.type === 'file' ? (
-                                            <a href={`http://localhost:3001/${msg.message}`} download target="_blank" rel="noreferrer" className="chat-file-link">
+                                            <a href={`https://api.render.com/deploy/srv-d4j6ctvgi27c739fo82g?key=g1U5dTGX6YAm/deploy/srv-d4j6ctvgi27c739fo82g?key=g1U5dTGX6YAm/deploy/srv-d4j6ctvgi27c739fo82g?key=g1U5dTGX6YA/${msg.message}`} download target="_blank" rel="noreferrer" className="chat-file-link">
                                                 📁 {msg.original_name || '파일 다운로드'}
                                             </a>
                                         ) : (

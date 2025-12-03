@@ -38,7 +38,7 @@ function MainLayout() {
         // ‼️ (수정) 토큰 대신 API로 최신 프로필 정보 불러오기
         const fetchProfile = async () => {
             try {
-                const response = await axios.get('http://localhost:3001/api/profile', {
+                const response = await axios.get('https://api.render.com/deploy/srv-d4j6ctvgi27c739fo82g?key=g1U5dTGX6YA/api/profile', {
                     headers: { Authorization: `Bearer ${token}` }
                 });
                 setMyUser(response.data.user);
@@ -48,7 +48,7 @@ function MainLayout() {
         };
         fetchProfile();
 
-        const newSocket = io('http://localhost:3001');
+        const newSocket = io('https://api.render.com/deploy/srv-d4j6ctvgi27c739fo82g?key=g1U5dTGX6YA');
         setSocket(newSocket);
 
         return () => newSocket.disconnect();
@@ -95,8 +95,8 @@ function MainLayout() {
         const token = localStorage.getItem('token');
         setInviteError('');
         try {
-            await axios.post(`http://localhost:3001/api/projects/${currentProjectId}/invite`, { email: inviteEmail }, { headers: { Authorization: `Bearer ${token}` } });
-            const response = await axios.get(`http://localhost:3001/api/projects/${currentProjectId}`, { headers: { Authorization: `Bearer ${token}` } });
+            await axios.post(`https://api.render.com/deploy/srv-d4j6ctvgi27c739fo82g?key=g1U5dTGX6YA/api/projects/${currentProjectId}/invite`, { email: inviteEmail }, { headers: { Authorization: `Bearer ${token}` } });
+            const response = await axios.get(`https://api.render.com/deploy/srv-d4j6ctvgi27c739fo82g?key=g1U5dTGX6YA/api/projects/${currentProjectId}`, { headers: { Authorization: `Bearer ${token}` } });
             setMembers(response.data.details.members);
             setInviteEmail(''); 
         } catch (err) { setInviteError('초대 실패'); }
@@ -112,7 +112,7 @@ function MainLayout() {
 
         try {
             const token = localStorage.getItem('token');
-            const response = await axios.post('http://localhost:3001/api/users/profile-image', formData, {
+            const response = await axios.post('https://api.render.com/deploy/srv-d4j6ctvgi27c739fo82g?key=g1U5dTGX6YA/api/users/profile-image', formData, {
                 headers: { 
                     'Content-Type': 'multipart/form-data',
                     Authorization: `Bearer ${token}` 
@@ -145,7 +145,7 @@ function MainLayout() {
                             {/* ‼️ 프로필 이미지 표시 */}
                             {myUser.profile_image ? (
                                 <img 
-                                    src={`http://localhost:3001/${myUser.profile_image}`} 
+                                    src={`https://api.render.com/deploy/srv-d4j6ctvgi27c739fo82g?key=g1U5dTGX6YA/${myUser.profile_image}`} 
                                     alt="Profile" 
                                     className="header-profile-img"
                                 />

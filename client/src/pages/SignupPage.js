@@ -20,7 +20,7 @@ function SignupPage() {
     setError('');
 
     try {
-      await axios.post('http://localhost:3001/api/users/signup', {
+      await axios.post('https://api.render.com/deploy/srv-d4j6ctvgi27c739fo82g?key=g1U5dTGX6YA/api/users/signup', {
         name,
         email,
         password

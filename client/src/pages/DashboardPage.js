@@ -29,13 +29,13 @@ function DashboardPage() {
 
         try {
             // 1. 내 프로젝트 목록
-            const projRes = await axios.get('http://localhost:3001/api/projects', {
+            const projRes = await axios.get('https://api.render.com/deploy/srv-d4j6ctvgi27c739fo82g?key=g1U5dTGX6YA/api/projects', {
                 headers: { Authorization: `Bearer ${token}` }
             });
             setProjects(projRes.data.projects);
 
             // 2. 초대된 프로젝트 목록
-            const invRes = await axios.get('http://localhost:3001/api/invitations', {
+            const invRes = await axios.get('https://api.render.com/deploy/srv-d4j6ctvgi27c739fo82g?key=g1U5dTGX6YA/api/invitations', {
                 headers: { Authorization: `Bearer ${token}` }
             });
             setInvitations(invRes.data.invitations);
@@ -53,7 +53,7 @@ function DashboardPage() {
     const handleRespond = async (projectId, accept) => {
         const token = localStorage.getItem('token');
         try {
-            await axios.post(`http://localhost:3001/api/invitations/${projectId}/respond`, 
+            await axios.post(`https://api.render.com/deploy/srv-d4j6ctvgi27c739fo82g?key=g1U5dTGX6YA/api/invitations/${projectId}/respond`, 
                 { accept }, 
                 { headers: { Authorization: `Bearer ${token}` } }
             );
@@ -71,7 +71,7 @@ function DashboardPage() {
         if (!newProjectName.trim()) return;
         try {
             const token = localStorage.getItem('token');
-            const response = await axios.post('http://localhost:3001/api/projects', 
+            const response = await axios.post('https://api.render.com/deploy/srv-d4j6ctvgi27c739fo82g?key=g1U5dTGX6YAm/deploy/srv-d4j6ctvgi27c739fo82g?key=g1U5dTGX6YA/api/projects', 
                 { name: newProjectName },
                 { headers: { Authorization: `Bearer ${token}` } }
             );

@@ -86,7 +86,7 @@ function ProjectPage() {
         } catch (e) {}
 
         try {
-            const response = await axios.get(`http://localhost:3001/api/projects/${projectId}`, {
+            const response = await axios.get(`https://api.render.com/deploy/srv-d4j6ctvgi27c739fo82g?key=g1U5dTGX6YA/api/projects/${projectId}`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             
@@ -178,7 +178,7 @@ function ProjectPage() {
         // 2. 서버 전송 (서버가 방송하면 handleTaskUpdated가 실행되어 덮어씀)
         try {
             const token = localStorage.getItem('token');
-            await axios.patch(`http://localhost:3001/api/tasks/${draggableId}`, 
+            await axios.patch(`https://api.render.com/deploy/srv-d4j6ctvgi27c739fo82g?key=g1U5dTGX6YA/api/tasks/${draggableId}`, 
                 { status: newStatus },
                 { headers: { Authorization: `Bearer ${token}` } }
             );
@@ -196,7 +196,7 @@ function ProjectPage() {
         const token = localStorage.getItem('token');
         try {
             await axios.post(
-                `http://localhost:3001/api/projects/${projectId}/tasks`,
+                `https://api.render.com/deploy/srv-d4j6ctvgi27c739fo82g?key=g1U5dTGX6YA/api/projects/${projectId}/tasks`,
                 { 
                     content: newTaskContent,
                     assignee_id: newAssigneeId || null,
@@ -219,7 +219,7 @@ function ProjectPage() {
         if (!window.confirm('정말 삭제하시겠습니까?')) return;
         const token = localStorage.getItem('token');
         try {
-            await axios.delete(`http://localhost:3001/api/projects/${projectId}`, {
+            await axios.delete(`https://api.render.com/deploy/srv-d4j6ctvgi27c739fo82g?key=g1U5dTGX6YA/api/projects/${projectId}`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             alert('삭제되었습니다.');
@@ -240,7 +240,7 @@ function ProjectPage() {
         if (!window.confirm('삭제하시겠습니까?')) return;
         const token = localStorage.getItem('token');
         try {
-            await axios.delete(`http://localhost:3001/api/tasks/${taskId}`, {
+            await axios.delete(`https://api.render.com/deploy/srv-d4j6ctvgi27c739fo82g?key=g1U5dTGX6YA/api/tasks/${taskId}`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             // ‼️ (수정됨) 수동 setTasks 제거. 소켓 기다림.
