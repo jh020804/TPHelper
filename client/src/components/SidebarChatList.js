@@ -17,7 +17,7 @@ function SidebarChatList({ socket, notifications }) {
 
         const fetchProjects = async () => {
             try {
-                const response = await axios.get('https://api.render.com/deploy/srv-d4j6ctvgi27c739fo82g?key=g1U5dTGX6YA/api/projects', {
+                const response = await axios.get('https://tphelper.onrender.com/api/projects', {
                     headers: { Authorization: `Bearer ${token}` }
                 });
                 

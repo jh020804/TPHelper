@@ -17,7 +17,7 @@ function TaskModal({ task, members, onClose, onSave, onDelete }) {
         const fetchAttachments = async () => {
             const token = localStorage.getItem('token');
             try {
-                const res = await axios.get(`https://api.render.com/deploy/srv-d4j6ctvgi27c739fo82g?key=g1U5dTGX6YA/api/tasks/${task.id}/files`, {
+                const res = await axios.get(`https://tphelper.onrender.com/api/tasks/${task.id}/files`, {
                     headers: { Authorization: `Bearer ${token}` }
                 });
                 setAttachments(res.data.files);
@@ -31,7 +31,7 @@ function TaskModal({ task, members, onClose, onSave, onDelete }) {
         const token = localStorage.getItem('token');
         const updatedFields = { content, assignee_id: assigneeId || null, due_date: dueDate || null };
         try {
-            const response = await axios.patch(`https://api.render.com/deploy/srv-d4j6ctvgi27c739fo82g?key=g1U5dTGX6YA/api/tasks/${task.id}`, updatedFields, { headers: { Authorization: `Bearer ${token}` } });
+            const response = await axios.patch(`https://tphelper.onrender.com/api/tasks/${task.id}`, updatedFields, { headers: { Authorization: `Bearer ${token}` } });
             onSave(response.data.task);
             onClose();
         } catch (error) { alert('수정에 실패했습니다.'); }
@@ -44,7 +44,7 @@ function TaskModal({ task, members, onClose, onSave, onDelete }) {
         formData.append('file', file);
         const token = localStorage.getItem('token');
         try {
-            const res = await axios.post(`https://api.render.com/deploy/srv-d4j6ctvgi27c739fo82g?key=g1U5dTGX6YA/api/tasks/${task.id}/files`, formData, {
+            const res = await axios.post(`https://tphelper.onrender.com/api/tasks/${task.id}/files`, formData, {
                 headers: { 'Content-Type': 'multipart/form-data', Authorization: `Bearer ${token}` }
             });
             setAttachments(prev => [...prev, res.data.file]); 
@@ -56,7 +56,7 @@ function TaskModal({ task, members, onClose, onSave, onDelete }) {
         
         const token = localStorage.getItem('token');
         try {
-            await axios.delete(`https://api.render.com/deploy/srv-d4j6ctvgi27c739fo82g?key=g1U5dTGX6YA/api/files/${fileId}`, {
+            await axios.delete(`https://tphelper.onrender.com/api/files/${fileId}`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             setAttachments(prev => prev.filter(file => file.id !== fileId));
@@ -87,7 +87,7 @@ function TaskModal({ task, members, onClose, onSave, onDelete }) {
                             {attachments.length > 0 ? (
                                 attachments.map(file => (
                                     <li key={file.id} className="attachment-item">
-                                        <a href={`https://api.render.com/deploy/srv-d4j6ctvgi27c739fo82g?key=g1U5dTGX6YA/${file.file_url}`} download target="_blank" rel="noreferrer">
+                                        <a href={`https://tphelper.onrender.com/${file.file_url}`} download target="_blank" rel="noreferrer">
                                             📄 {file.original_name}
                                         </a>
                                         <button 
