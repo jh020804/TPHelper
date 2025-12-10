@@ -14,7 +14,7 @@ function LoginPage() {
     setError('');
 
     try {
-      const response = await axios.post('https://tphelper.onrender.com5dTGX6YA/api/users/login', {
+      const response = await axios.post('https://tphelper.onrender.com/api/users/login', {
         email: email,
         password: password
       });
