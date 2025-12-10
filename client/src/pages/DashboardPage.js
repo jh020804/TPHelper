@@ -22,7 +22,7 @@ function DashboardPage() {
         }
 
         // 사용자 정보 가져오기
-        axios.get(`${API_URL}/api/profile`, {
+        axios.get(`${API_URL}/api/users/profile`, {
             headers: { Authorization: `Bearer ${token}` }
         })
         .then(res => setUser(res.data.user))
