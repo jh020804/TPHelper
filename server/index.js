@@ -16,8 +16,8 @@ const PORT = 3001;
 // 본인의 Vercel 주소를 여기에 꼭 넣어주세요!
 const allowedOrigins = [
     "http://localhost:3000",
-    "https://tphelper-client.vercel.app", // 원래 쓰던 메인 주소
-    "https://tp-helper-lcti-cevu0p693-junghoon-kims-projects-6de6b73a.vercel.app" // ⬅️ ‼️ 에러가 났던 이 긴 주소를 추가해주세요!
+    "https://tphelper-client.vercel.app", // 기존 메인 주소
+    "https://tp-helper-lcti.vercel.app",  // ⬅️ ‼️ 에러 로그에 뜬 이 주소를 추가하세요!
 ];
 
 app.use(express.json());
