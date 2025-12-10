@@ -1,85 +1,81 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useParams, useNavigate, useOutletContext } from 'react-router-dom';
+import io from 'socket.io-client';
 import axios from 'axios';
-import { FaPaperclip } from 'react-icons/fa'; // ‼️ 아이콘 추가
 import './ProjectChatRoom.css';
+import { FaPaperclip } from 'react-icons/fa';
 
-function formatTime(timestamp) { return new Date(timestamp).toLocaleTimeString('ko-KR', { hour: 'numeric', minute: 'numeric', hour12: true }); }
-function formatDate(timestamp) { return new Date(timestamp).toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' }); }
-function isNewDay(timestamp1, timestamp2) {
-    if (!timestamp2) return true;
-    const d1 = new Date(timestamp1); const d2 = new Date(timestamp2);
-    return d1.getFullYear() !== d2.getFullYear() || d1.getMonth() !== d2.getMonth() || d1.getDate() !== d2.getDate();
-}
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001';
 
-function ProjectChatRoom() {
+// 소켓 연결 설정
+const socket = io(API_URL, {
+    withCredentials: true
+});
+
+function ProjectChatRoom({ projectId }) {
     const [messages, setMessages] = useState([]);
-    const [newMessage, setNewMessage] = useState('');
-    const { setHeaderTitle, setMembers, socket, myUserName } = useOutletContext();
-    const { projectId } = useParams();
-    const navigate = useNavigate();
-    const messageEndRef = useRef(null);
-    const fileInputRef = useRef(null); // ‼️ 파일 입력창 참조
+    const [input, setInput] = useState('');
     const [userId, setUserId] = useState(null);
+    const [userName, setUserName] = useState('');
+    const chatEndRef = useRef(null);
 
+    // 1. 사용자 정보 가져오기
     useEffect(() => {
         const token = localStorage.getItem('token');
-        if (!token) { navigate('/login'); return; }
-        try {
-            const decodedToken = JSON.parse(atob(token.split('.')[1]));
-            setUserId(decodedToken.userId);
-        } catch (e) {}
-
-        setMessages([]); 
-
-        if (socket) {
-            socket.emit('joinRoom', projectId);
-            const messageListener = (data) => {
-                if (String(data.projectId) === String(projectId)) {
-                    setMessages((prevMessages) => [...prevMessages, data]);
-                }
-            };
-            socket.on('receiveMessage', messageListener);
-            return () => {
-                socket.off('receiveMessage', messageListener);
-                socket.emit('leaveRoom', projectId);
-            };
+        if (token) {
+            axios.get(`${API_URL}/api/profile`, {
+                headers: { Authorization: `Bearer ${token}` }
+            }).then(res => {
+                setUserId(res.data.user.id);
+                setUserName(res.data.user.name);
+            }).catch(err => console.error(err));
         }
-    }, [projectId, socket, navigate]);
+    }, []);
 
+    // 2. 소켓 연결 및 이전 메시지 불러오기
     useEffect(() => {
+        if (!userId) return;
+
+        socket.emit('joinRoom', projectId);
+
+        // 이전 메시지 불러오기
         const token = localStorage.getItem('token');
-        const fetchData = async () => {
-            try {
-                const detailsRes = await axios.get(`https://tphelper.onrender.com Authorization: `Bearer ${token}` } });
-                setHeaderTitle(`채팅: ${detailsRes.data.details.project.name}`);
-                setMembers(detailsRes.data.details.members);
-                const msgRes = await axios.get(`https://tphelper.onrender.comeaders: { Authorization: `Bearer ${token}` } });
-                setMessages(msgRes.data.messages);
-            } catch (e) { if (e.response && (e.response.status === 401 || e.response.status === 403)) navigate('/'); }
-        };
-        fetchData();
-    }, [projectId, setHeaderTitle, setMembers, navigate]);
+        axios.get(`${API_URL}/api/projects/${projectId}/messages`, {
+            headers: { Authorization: `Bearer ${token}` }
+        }).then(res => {
+            setMessages(res.data.messages);
+        }).catch(err => console.error(err));
 
+        socket.on('receiveMessage', (message) => {
+            setMessages((prev) => [...prev, message]);
+        });
+
+        return () => {
+            socket.emit('leaveRoom', projectId);
+            socket.off('receiveMessage');
+        };
+    }, [projectId, userId]);
+
+    // 3. 스크롤 자동 이동
     useEffect(() => {
-        messageEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+        chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [messages]);
 
-    const handleSendMessage = (e) => {
+    const sendMessage = (e) => {
         e.preventDefault();
-        if (!newMessage.trim() || !userId || !socket) return;
-        const messageData = {
-            projectId: projectId,
-            senderName: myUserName,
-            message: newMessage,
-            userId: userId,
-            type: 'text' // ‼️ 텍스트 타입 명시
-        };
-        socket.emit('sendMessage', messageData);
-        setNewMessage('');
+        if (input.trim() && userId) {
+            const messageData = {
+                projectId,
+                userId,
+                senderName: userName,
+                message: input,
+                type: 'text',
+                timestamp: new Date()
+            };
+            socket.emit('sendMessage', messageData);
+            setInput('');
+        }
     };
 
-    // --- ‼️ (신규) 파일 업로드 핸들러 ---
     const handleFileUpload = async (e) => {
         const file = e.target.files[0];
         if (!file) return;
@@ -87,110 +83,76 @@ function ProjectChatRoom() {
         const formData = new FormData();
         formData.append('file', file);
 
+        const token = localStorage.getItem('token');
         try {
-            const token = localStorage.getItem('token');
-            const res = await axios.post('https://tphelper.onrender.com
-                headers: { 'Content-Type': 'multipart/form-data', Authorization: `Bearer ${token}` }
+            const res = await axios.post(`${API_URL}/api/chat/upload`, formData, {
+                headers: { 
+                    'Content-Type': 'multipart/form-data',
+                    Authorization: `Bearer ${token}`
+                }
             });
 
-            // 업로드 성공 후 소켓으로 이미지/파일 정보 전송
+            const { fileUrl, fileType, originalName } = res.data;
             const messageData = {
-                projectId: projectId,
-                senderName: myUserName,
-                message: res.data.fileUrl, // 메시지 내용 = 파일 경로
-                userId: userId,
-                type: res.data.fileType, // 'image' 또는 'file'
-                original_name: res.data.originalName
+                projectId,
+                userId,
+                senderName: userName,
+                message: fileUrl, // 파일 경로를 메시지로 전송
+                type: fileType,   // 'image' 또는 'file'
+                original_name: originalName,
+                timestamp: new Date()
             };
             socket.emit('sendMessage', messageData);
 
         } catch (error) {
-            alert('파일 전송 실패');
+            alert('파일 업로드 실패');
+            console.error(error);
         }
     };
 
-    const handleExportChat = () => {
-        let logContent = `대화 내역\n저장한 날짜: ${formatDate(new Date())}\n\n`;
-        messages.forEach((msg, index) => {
-            const prevMsg = index > 0 ? messages[index - 1] : null;
-            if (isNewDay(msg.timestamp, prevMsg ? prevMsg.timestamp : null)) {
-                logContent += `\n---------- ${formatDate(msg.timestamp)} ----------\n\n`;
-            }
-            // 파일인 경우 표시
-            const content = msg.type === 'image' ? '[사진]' : (msg.type === 'file' ? `[파일] ${msg.original_name}` : msg.message);
-            logContent += `[${formatTime(msg.timestamp)}] ${msg.senderName}: ${content}\n`;
-        });
-        const blob = new Blob([logContent], { type: 'text/plain;charset=utf-8' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `채팅내역.txt`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
-    };
-
     return (
-        <div className="chat-room-container">
-            <button onClick={handleExportChat} className="print-button">채팅 내보내기 (.txt)</button>
-            <div className="message-list">
+        <div className="chat-container">
+            <div className="chat-messages">
                 {messages.map((msg, index) => {
-                    const prevMsg = index > 0 ? messages[index - 1] : null;
-                    const msgUserId = msg.user_id || msg.userId; 
-                    const isMyMessage = String(msgUserId) === String(userId);
-                    const showDateSeparator = isNewDay(msg.timestamp, prevMsg ? prevMsg.timestamp : null);
-                    const prevMsgUserId = prevMsg ? (prevMsg.user_id || prevMsg.userId) : null;
-                    const isGrouped = !showDateSeparator && prevMsg && String(prevMsgUserId) === String(msgUserId);
-                    const senderName = msg.sender_name || msg.senderName;
-                    const showSenderName = !isMyMessage && !isGrouped;
-                    const isMentioned = msg.type === 'text' && msg.message.includes(`@${myUserName}`);
-                    const bubbleStyle = isMentioned && !isMyMessage ? { backgroundColor: '#fffacd', border: '2px solid #ffcc00' } : {};
-
+                    const isMyMessage = msg.user_id === userId;
                     return (
-                        <React.Fragment key={index}>
-                            {showDateSeparator && <div className="date-separator"><span>{formatDate(msg.timestamp)}</span></div>}
-                            <div className={`message-item ${isMyMessage ? 'my-message' : 'other-message'} ${isGrouped ? 'is-grouped' : ''}`}>
-                                <div className="message-body">
-                                    {showSenderName && <span className="message-sender">{senderName}</span>}
-                                    
-                                    {/* ‼️ 메시지 타입에 따른 렌더링 분기 */}
-                                    <div className="message-content" style={bubbleStyle}>
-                                        {msg.type === 'image' ? (
-                                            <img 
-                                                src={`https://tphelper.onrender.com
-                                                alt="채팅 이미지" 
-                                                className="chat-image" 
-                                            />
-                                        ) : msg.type === 'file' ? (
-                                            <a href={`https://tphelper.onrender.com5dTGX6YAm/deploy/srv-d4j6ctvgi27c739fo82g?key=g1U5dTGX6YA/${msg.message}`} download target="_blank" rel="noreferrer" className="chat-file-link">
-                                                📁 {msg.original_name || '파일 다운로드'}
-                                            </a>
-                                        ) : (
-                                            msg.message
-                                        )}
-                                    </div>
-                                </div>
-                                <span className="message-time">{formatTime(msg.timestamp)}</span>
+                        <div key={index} className={`message ${isMyMessage ? 'my-message' : 'other-message'}`}>
+                            <div className="message-sender">{msg.sender_name}</div>
+                            <div className="message-bubble">
+                                {msg.type === 'image' ? (
+                                    <img 
+                                        src={`${API_URL}/${msg.message}`} 
+                                        alt="uploaded" 
+                                        style={{maxWidth: '200px', borderRadius: '8px'}} 
+                                    />
+                                ) : msg.type === 'file' ? (
+                                    <a href={`${API_URL}/${msg.message}`} download target="_blank" rel="noreferrer">
+                                        📎 {msg.original_name || '첨부파일'}
+                                    </a>
+                                ) : (
+                                    msg.message
+                                )}
                             </div>
-                        </React.Fragment>
+                            <div className="message-time">
+                                {new Date(msg.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                            </div>
+                        </div>
                     );
                 })}
-                <div ref={messageEndRef} />
+                <div ref={chatEndRef} />
             </div>
-            <form className="message-input-form" onSubmit={handleSendMessage}>
-                {/* ‼️ 파일 업로드 버튼 추가 */}
-                <button type="button" className="file-upload-btn" onClick={() => fileInputRef.current.click()}>
+            
+            <form className="chat-input-form" onSubmit={sendMessage}>
+                <label className="file-upload-label">
                     <FaPaperclip />
-                </button>
+                    <input type="file" style={{display:'none'}} onChange={handleFileUpload} />
+                </label>
                 <input 
-                    type="file" 
-                    ref={fileInputRef} 
-                    style={{display:'none'}} 
-                    onChange={handleFileUpload} 
+                    type="text" 
+                    value={input} 
+                    onChange={(e) => setInput(e.target.value)} 
+                    placeholder="메시지를 입력하세요..." 
                 />
-                
-                <input type="text" value={newMessage} onChange={(e) => setNewMessage(e.target.value)} placeholder="메시지를 입력하세요..." />
                 <button type="submit">전송</button>
             </form>
         </div>

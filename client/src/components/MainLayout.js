@@ -145,7 +145,7 @@ function MainLayout() {
                             {/* ‼️ 프로필 이미지 표시 */}
                             {myUser.profile_image ? (
                                 <img 
-                                    src={`https://api.render.com/deploy/srv-d4j6ctvgi27c739fo82g?key=g1U5dTGX6YA/${myUser.profile_image}`} 
+                                    src={`https://tphelper.onrender.com/${myUser.profile_image}`} 
                                     alt="Profile" 
                                     className="header-profile-img"
                                 />

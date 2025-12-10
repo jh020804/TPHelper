@@ -1,162 +1,170 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate, Link, useOutletContext } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import './DashboardPage.css';
 
+// Vercel 환경 변수 사용 (없으면 로컬 주소 사용)
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+
 function DashboardPage() {
-    const [projects, setProjects] = useState([]); // 내 프로젝트 (Active)
-    const [invitations, setInvitations] = useState([]); // 초대된 프로젝트 (Pending)
-    const [activeTab, setActiveTab] = useState('my_projects'); // 현재 탭 상태
-    const [newProjectName, setNewProjectName] = useState('');
-    const [isCreating, setIsCreating] = useState(false);
     const navigate = useNavigate();
-    
-    const outletContext = useOutletContext();
-    const setHeaderTitle = outletContext?.setHeaderTitle || (() => {});
-    const setMembers = outletContext?.setMembers || (() => {});
-    const setCurrentProjectId = outletContext?.setCurrentProjectId || (() => {});
+    const [user, setUser] = useState(null);
+    const [projects, setProjects] = useState([]);
+    const [invitations, setInvitations] = useState([]);
+    const [showCreateModal, setShowCreateModal] = useState(false);
+    const [newProjectName, setNewProjectName] = useState('');
 
     useEffect(() => {
-        setHeaderTitle('대시보드');
-        setMembers([]); 
-        setCurrentProjectId(null); 
-    }, [setHeaderTitle, setMembers, setCurrentProjectId]);
-
-    // 데이터 불러오기 함수
-    const fetchData = async () => {
         const token = localStorage.getItem('token');
-        if (!token) { navigate('/login'); return; }
-
-        try {
-            // 1. 내 프로젝트 목록
-            const projRes = await axios.get('https://tphelper.onrender.com
-                headers: { Authorization: `Bearer ${token}` }
-            });
-            setProjects(projRes.data.projects);
-
-            // 2. 초대된 프로젝트 목록
-            const invRes = await axios.get('https://tphelper.onrender.com
-                headers: { Authorization: `Bearer ${token}` }
-            });
-            setInvitations(invRes.data.invitations);
-
-        } catch (error) {
-            console.error('데이터 로딩 실패:', error);
+        if (!token) {
+            navigate('/');
+            return;
         }
-    };
 
-    useEffect(() => {
-        fetchData();
+        // 사용자 정보 가져오기
+        axios.get(`${API_URL}/api/profile`, {
+            headers: { Authorization: `Bearer ${token}` }
+        })
+        .then(res => setUser(res.data.user))
+        .catch(() => {
+            localStorage.removeItem('token');
+            navigate('/');
+        });
+
+        // 프로젝트 목록 가져오기
+        fetchProjects();
+        // 초대 목록 가져오기
+        fetchInvitations();
     }, [navigate]);
 
-    // 초대 응답 핸들러 (수락/거절)
-    const handleRespond = async (projectId, accept) => {
+    const fetchProjects = async () => {
         const token = localStorage.getItem('token');
         try {
-            await axios.post(`https://tphelper.onrender.com
-                { accept }, 
-                { headers: { Authorization: `Bearer ${token}` } }
-            );
-            // 목록 새로고침
-            fetchData();
-            alert(accept ? '프로젝트에 참여했습니다!' : '초대를 거절했습니다.');
+            const res = await axios.get(`${API_URL}/api/projects`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            setProjects(res.data.projects);
         } catch (error) {
-            alert('처리에 실패했습니다.');
+            console.error('프로젝트 목록 로드 실패', error);
         }
     };
 
-    // 프로젝트 생성 핸들러
-    const handleCreateProject = async (e) => {
-        e.preventDefault();
-        if (!newProjectName.trim()) return;
+    const fetchInvitations = async () => {
+        const token = localStorage.getItem('token');
         try {
-            const token = localStorage.getItem('token');
-            const response = await axios.post('https://tphelper.onrender.com5dTGX6YA/api/projects', 
+            const res = await axios.get(`${API_URL}/api/invitations`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            setInvitations(res.data.invitations);
+        } catch (error) {
+            console.error('초대 목록 로드 실패', error);
+        }
+    };
+
+    const handleLogout = () => {
+        localStorage.removeItem('token');
+        navigate('/');
+    };
+
+    const handleCreateProject = async () => {
+        if (!newProjectName.trim()) return;
+        const token = localStorage.getItem('token');
+        try {
+            await axios.post(`${API_URL}/api/projects`, 
                 { name: newProjectName },
                 { headers: { Authorization: `Bearer ${token}` } }
             );
-            setProjects([...projects, { id: response.data.projectId, name: newProjectName }]);
+            setShowCreateModal(false);
             setNewProjectName('');
-            setIsCreating(false);
+            fetchProjects();
         } catch (error) {
             alert('프로젝트 생성 실패');
         }
     };
 
+    const handleRespondInvitation = async (projectId, accept) => {
+        const token = localStorage.getItem('token');
+        try {
+            await axios.post(`${API_URL}/api/invitations/${projectId}/respond`,
+                { accept },
+                { headers: { Authorization: `Bearer ${token}` } }
+            );
+            fetchInvitations();
+            if (accept) fetchProjects();
+        } catch (error) {
+            alert('초대 응답 처리 실패');
+        }
+    };
+
+    if (!user) return <div>로딩 중...</div>;
+
     return (
-        <div className="dashboard-content">
-            {/* --- 탭 메뉴 --- */}
-            <div className="dashboard-tabs">
-                <button 
-                    className={`tab-btn ${activeTab === 'my_projects' ? 'active' : ''}`}
-                    onClick={() => setActiveTab('my_projects')}
-                >
-                    내 프로젝트 ({projects.length})
-                </button>
-                <button 
-                    className={`tab-btn ${activeTab === 'invitations' ? 'active' : ''}`}
-                    onClick={() => setActiveTab('invitations')}
-                >
-                    초대된 프로젝트 ({invitations.length})
-                    {invitations.length > 0 && <span className="new-badge">N</span>}
-                </button>
-            </div>
+        <div className="dashboard-container">
+            <header className="dashboard-header">
+                <div className="header-left">
+                    <h2>TPHelper</h2>
+                </div>
+                <div className="header-right">
+                    <span className="user-name">{user.name}님 환영합니다!</span>
+                    <button onClick={handleLogout} className="btn-logout">로그아웃</button>
+                </div>
+            </header>
 
-            <main className="project-list-container">
-                
-                {/* --- 1. 내 프로젝트 탭 --- */}
-                {activeTab === 'my_projects' && (
-                    <div className="project-list">
-                        {/* 새 프로젝트 생성 카드 */}
-                        <div className={`project-card create-card ${isCreating ? 'active' : ''}`}>
-                            {isCreating ? (
-                                <form onSubmit={handleCreateProject} className="card-form">
-                                    <input autoFocus type="text" value={newProjectName} onChange={(e) => setNewProjectName(e.target.value)} placeholder="프로젝트 이름" />
-                                    <div className="card-actions">
-                                        <button type="submit" className="btn-create">생성</button>
-                                        <button type="button" className="btn-cancel" onClick={() => {setIsCreating(false); setNewProjectName('');}}>취소</button>
+            <div className="dashboard-content">
+                {/* 초대 목록 섹션 */}
+                {invitations.length > 0 && (
+                    <div className="invitations-section">
+                        <h3>📬 도착한 초대장이 있습니다!</h3>
+                        <ul className="invitation-list">
+                            {invitations.map(inv => (
+                                <li key={inv.id} className="invitation-item">
+                                    <span>
+                                        <strong>{inv.inviter_name}</strong>님이 
+                                        <strong> [{inv.name}] </strong> 프로젝트에 초대했습니다.
+                                    </span>
+                                    <div className="invitation-buttons">
+                                        <button onClick={() => handleRespondInvitation(inv.id, true)} className="btn-accept">수락</button>
+                                        <button onClick={() => handleRespondInvitation(inv.id, false)} className="btn-reject">거절</button>
                                     </div>
-                                </form>
-                            ) : (
-                                <div className="create-placeholder" onClick={() => setIsCreating(true)}>
-                                    <span className="plus-icon">+</span><span>새 프로젝트</span>
-                                </div>
-                            )}
-                        </div>
+                                </li>
+                            ))}
+                        </ul>
+                    </div>
+                )}
 
-                        {/* 프로젝트 목록 */}
+                <div className="projects-section">
+                    <div className="section-header">
+                        <h3>내 프로젝트</h3>
+                        <button onClick={() => setShowCreateModal(true)} className="btn-create">+ 새 프로젝트</button>
+                    </div>
+
+                    <div className="project-grid">
                         {projects.map(project => (
-                            <Link to={`/project/${project.id}`} key={project.id} className="project-card-link">
-                                <div className="project-card">
-                                    <h3>{project.name}</h3>
-                                </div>
-                            </Link>
+                            <div key={project.id} className="project-card" onClick={() => navigate(`/projects/${project.id}`)}>
+                                <h4>{project.name}</h4>
+                            </div>
                         ))}
                     </div>
-                )}
+                </div>
+            </div>
 
-                {/* --- 2. 초대된 프로젝트 탭 --- */}
-                {activeTab === 'invitations' && (
-                    <div className="invitation-list">
-                        {invitations.length > 0 ? (
-                            invitations.map(invite => (
-                                <div key={invite.id} className="invitation-card">
-                                    <div className="invite-info">
-                                        <h3>{invite.name}</h3>
-                                        <p>초대한 사람: <strong>{invite.inviter_name}</strong></p>
-                                    </div>
-                                    <div className="invite-actions">
-                                        <button onClick={() => handleRespond(invite.id, true)} className="btn-accept">수락</button>
-                                        <button onClick={() => handleRespond(invite.id, false)} className="btn-decline">거절</button>
-                                    </div>
-                                </div>
-                            ))
-                        ) : (
-                            <p className="no-invites">받은 초대가 없습니다.</p>
-                        )}
+            {showCreateModal && (
+                <div className="modal-overlay" onClick={() => setShowCreateModal(false)}>
+                    <div className="modal-content" onClick={e => e.stopPropagation()}>
+                        <h3>새 프로젝트 생성</h3>
+                        <input 
+                            type="text" 
+                            placeholder="프로젝트 이름"
+                            value={newProjectName}
+                            onChange={(e) => setNewProjectName(e.target.value)}
+                        />
+                        <div className="modal-actions">
+                            <button onClick={() => setShowCreateModal(false)}>취소</button>
+                            <button onClick={handleCreateProject} className="btn-primary">생성</button>
+                        </div>
                     </div>
-                )}
-            </main>
+                </div>
+            )}
         </div>
     );
 }
