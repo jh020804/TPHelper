@@ -38,7 +38,7 @@ function MainLayout() {
         // ‼️ (수정) 토큰 대신 API로 최신 프로필 정보 불러오기
         const fetchProfile = async () => {
             try {
-                const response = await axios.get('https://tphelper.onrender.com/api/profile', {
+                const response = await axios.get('https://tphelper.onrender.com/api/users/profile', {
                     headers: { Authorization: `Bearer ${token}` }
                 });
                 setMyUser(response.data.user);
