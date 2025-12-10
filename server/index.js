@@ -6,7 +6,20 @@ const mysql = require('mysql2/promise');
 const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
-const dbConfig = require('./config/db'); // DB 설정 분리됨
+const dbConfig = {
+    host: process.env.DB_HOST,
+    user: process.env.DB_USER,
+    password: process.env.DB_PASSWORD,
+    database: process.env.DB_NAME,
+    port: process.env.DB_PORT || 4000,
+    waitForConnections: true,
+    connectionLimit: 10,
+    // ⬇️ ‼️ [중요] 이 SSL 설정이 없으면 TiDB 접속이 무조건 실패(500 에러)합니다!
+    ssl: {
+        minVersion: 'TLSv1.2',
+        rejectUnauthorized: true
+    }
+};
 
 // 2. 기본 설정
 const app = express();

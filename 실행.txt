@@ -9,3 +9,6 @@ const dbConfig = {
     database: 'tphlper_db'
 };
 https://tp-helper-uk9r.vercel.app/login
+
+TiDB password
+diyzo11YYhOskCDW
