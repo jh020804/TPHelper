@@ -6,6 +6,7 @@ import ProjectPage from './pages/ProjectPage';
 import MainLayout from './components/MainLayout';
 import ChatPage from './pages/ChatPage';
 import ProjectChatRoom from './pages/ProjectChatRoom'; // 1. ProjectChatRoom 불러오기
+import ProjectPage from './pages/ProjectPage';
 
 function App() {
   return (
