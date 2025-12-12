@@ -5,7 +5,6 @@ import './TaskModal.css';
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001';
 
 function TaskModal({ task, members, onClose, onUpdate }) {
-    // State 초기화
     const [title, setTitle] = useState(task.title || '');
     const [content, setContent] = useState(task.content || '');
     const [status, setStatus] = useState(task.status || 'To Do');
@@ -14,18 +13,16 @@ function TaskModal({ task, members, onClose, onUpdate }) {
     const [files, setFiles] = useState([]);
     const token = localStorage.getItem('token');
 
-    // 🚨 중요: task ID가 바뀔 때마다 State를 새로 받은 데이터로 초기화
-    // 이 코드가 없으면 다른 업무를 클릭해도 이전 업무의 제목이 남아있거나 비어있을 수 있습니다.
+    // 모달이 열릴 때마다 데이터 동기화
     useEffect(() => {
         setTitle(task.title || '');
         setContent(task.content || '');
         setStatus(task.status || 'To Do');
         setDueDate(task.due_date ? task.due_date.split('T')[0] : '');
         setAssigneeId(task.assignee_id || '');
-        
         fetchFiles();
         // eslint-disable-next-line
-    }, [task.id]); 
+    }, [task.id]);
 
     const fetchFiles = async () => {
         try {
@@ -42,23 +39,25 @@ function TaskModal({ task, members, onClose, onUpdate }) {
         if (!title.trim()) return alert("제목을 입력해주세요.");
 
         try {
-            // 🚨 저장 시 title을 포함한 모든 필드를 전송
+            console.log("저장 요청 데이터:", { title, content, status }); // 🚨 디버깅
+            
+            // 🚨 수정: 모든 필드 명시적 전송
             await axios.patch(`${API_URL}/api/tasks/${task.id}`, 
                 { 
-                    title,      // 제목
-                    content,    // 상세 내용
-                    status, 
-                    due_date: dueDate, 
-                    assignee_id: assigneeId 
+                    title: title,       // 제목
+                    content: content,   // 내용
+                    status: status,
+                    due_date: dueDate,
+                    assignee_id: assigneeId
                 },
                 { headers: { Authorization: `Bearer ${token}` } }
             );
             alert('저장되었습니다.');
-            onUpdate(); // 부모 컴포넌트(ProjectPage) 데이터 갱신
-            onClose();  // 모달 닫기
+            onUpdate();
+            onClose();
         } catch (error) {
-            console.error(error);
-            alert('저장 실패');
+            console.error("저장 실패:", error);
+            alert('저장 실패: 서버 로그를 확인해주세요.');
         }
     };
 
@@ -84,7 +83,6 @@ function TaskModal({ task, members, onClose, onUpdate }) {
             });
             fetchFiles(); 
         } catch (error) {
-            console.error(error);
             alert('파일 삭제 실패');
         }
     };
@@ -92,16 +90,11 @@ function TaskModal({ task, members, onClose, onUpdate }) {
     const handleFileUpload = async (e) => {
         const file = e.target.files[0];
         if (!file) return;
-        
         const formData = new FormData();
         formData.append('file', file);
-
         try {
             await axios.post(`${API_URL}/api/tasks/${task.id}/files`, formData, {
-                headers: { 
-                    'Content-Type': 'multipart/form-data',
-                    Authorization: `Bearer ${token}` 
-                }
+                headers: { 'Content-Type': 'multipart/form-data', Authorization: `Bearer ${token}` }
             });
             fetchFiles();
         } catch (error) {
@@ -171,13 +164,7 @@ function TaskModal({ task, members, onClose, onUpdate }) {
                                     <a href={`${API_URL}/${f.file_url}`} target="_blank" rel="noopener noreferrer">
                                         📄 {f.original_name}
                                     </a>
-                                    <button 
-                                        className="file-delete-btn" 
-                                        onClick={() => handleDeleteFile(f.id)}
-                                        title="파일 삭제"
-                                    >
-                                        ×
-                                    </button>
+                                    <button className="file-delete-btn" onClick={() => handleDeleteFile(f.id)}>×</button>
                                 </li>
                             ))}
                         </ul>
