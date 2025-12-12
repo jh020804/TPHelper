@@ -1,123 +1,122 @@
-.kanban-board-container {
-    max-width: 1400px;
-    margin: 0 auto;
-    position: relative; /* 삭제 버튼 배치를 위해 */
+.project-container {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 20px;
 }
 
-/* --- ‼️ (추가) 프로젝트 컨트롤 영역 --- */
-.project-controls {
-    display: flex;
-    justify-content: flex-end; /* 오른쪽 정렬 */
-    margin-bottom: 10px;
-    padding-right: 5px;
+.project-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 30px;
 }
 
-.btn-delete-project {
-    background-color: #dc3545; /* 빨간색 */
-    color: white;
-    border: none;
-    padding: 8px 15px;
-    border-radius: 4px;
-    cursor: pointer;
-    font-weight: bold;
-    font-size: 0.9rem;
-    transition: background-color 0.2s;
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 15px;
 }
 
-.btn-delete-project:hover {
-    background-color: #c82333;
-}
-/* -------------------------------- */
-
-.kanban-board {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr); 
-    gap: 20px;
+.back-btn {
+  background: none;
+  border: 1px solid #ddd;
+  padding: 5px 10px;
+  border-radius: 4px;
+  cursor: pointer;
 }
 
-.kanban-column {
-    background-color: #f4f5f7;
-    border-radius: 8px;
-    padding: 15px;
-    min-height: 400px;
+.chat-link-btn {
+  background-color: #6f42c1; /* 보라색 채팅 버튼 */
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 20px;
+  cursor: pointer;
 }
 
-.kanban-column h3 {
-    margin-top: 0;
-    padding-bottom: 10px;
-    border-bottom: 2px solid #ddd;
+.project-content {
+  display: flex;
+  gap: 30px;
 }
 
-.kanban-card {
-    background-color: #fff;
-    border-radius: 4px;
-    padding: 15px;
-    margin-bottom: 10px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-    cursor: pointer;
-    transition: box-shadow 0.2s;
-}
-.kanban-card:hover {
-    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+.task-section {
+  flex: 3;
 }
 
-.kanban-card p {
-    margin: 0 0 10px 0;
-    word-break: break-word;
+.task-input-wrapper {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
 }
 
-.card-meta {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    font-size: 0.85rem;
-    color: #555;
-}
-.card-due-date {
-    background-color: #f0f0f0;
-    padding: 3px 6px;
-    border-radius: 4px;
-}
-.card-assignee {
-    font-weight: 600;
+.task-input {
+  flex: 1;
+  padding: 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
 }
 
-.add-task-form {
-    display: flex;
-    flex-direction: column;
-    margin-bottom: 15px;
+.add-task-btn {
+  padding: 0 20px;
+  background-color: #28a745;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
 }
-.add-task-form textarea {
-    flex-grow: 1; 
-    padding: 8px;
-    border: 1px solid #ccc;
-    border-radius: 4px;
-    resize: vertical;
-    min-height: 60px;
-    font-size: 1rem;
-    margin-bottom: 8px;
+
+.task-item {
+  background: white;
+  border: 1px solid #eee;
+  padding: 15px;
+  border-radius: 8px;
+  margin-bottom: 10px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
 }
-.task-form-extras {
-    display: flex;
-    gap: 10px;
-    margin-bottom: 8px;
+
+/* 상태별 뱃지 스타일 */
+.task-badge {
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: bold;
 }
-.task-form-extras input[type="date"],
-.task-form-extras select {
-    width: 50%;
-    padding: 6px;
-    border: 1px solid #ccc;
-    border-radius: 4px;
-    font-size: 0.9rem;
-    box-sizing: border-box;
+
+.status-to-do .task-badge { background: #eee; color: #555; }
+.status-in-progress .task-badge { background: #fff3cd; color: #856404; }
+.status-done .task-badge { background: #d4edda; color: #155724; }
+
+.member-section {
+  flex: 1;
+  background: #f8f9fa;
+  padding: 20px;
+  border-radius: 8px;
+  height: fit-content;
 }
-.add-task-form button {
-    padding: 8px 12px;
-    background-color: #007bff;
-    color: white;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 1rem;
-    font-weight: 600;
+
+.member-list {
+  list-style: none;
+  padding: 0;
+}
+
+.member-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.member-avatar {
+  width: 30px;
+  height: 30px;
+  background: #007bff;
+  color: white;
+  border-radius: 50%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 14px;
 }
