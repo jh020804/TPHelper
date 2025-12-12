@@ -3,19 +3,19 @@ import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import { io } from 'socket.io-client';
 import './MainLayout.css';
-import SidebarNav from './SidebarNav';
 import SidebarChatList from './SidebarChatList';
 import { FaBars, FaUsers, FaTimes, FaChevronDown, FaSignOutAlt, FaCamera } from 'react-icons/fa';
 
 function MainLayout() {
     const navigate = useNavigate();
     const location = useLocation();
-    const isChatActive = location.pathname.startsWith('/chat');
-
+    
+    // 현재 채팅방에 있거나 프로젝트 상세 페이지에 있는지 확인
+    const isChatPage = location.pathname.startsWith('/chat');
+    
     const [socket, setSocket] = useState(null);
     const [notifications, setNotifications] = useState({});
     
-    // --- ‼️ (수정) 내 정보 (이름, 이미지) 상태 ---
     const [myUser, setMyUser] = useState({ name: '', profile_image: null });
     
     const [headerTitle, setHeaderTitle] = useState('');
@@ -28,14 +28,15 @@ function MainLayout() {
     const [isRightSidebarOpen, setIsRightSidebarOpen] = useState(false);
     const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
 
-    // ‼️ (추가) 파일 입력창 참조
     const fileInputRef = useRef(null);
+
+    // ‼️ 오른쪽 사이드바가 필요한 상황인지 판단 (프로젝트 ID가 있거나 채팅 페이지일 때)
+    const showRightSidebar = currentProjectId || isChatPage;
 
     useEffect(() => {
         const token = localStorage.getItem('token');
         if (!token) { navigate('/login'); return; }
 
-        // ‼️ (수정) 토큰 대신 API로 최신 프로필 정보 불러오기
         const fetchProfile = async () => {
             try {
                 const response = await axios.get('https://tphelper.onrender.com/api/users/profile', {
@@ -71,7 +72,6 @@ function MainLayout() {
         return () => { socket.off('receiveMessage', handleReceiveMessage); };
     }, [socket, location.pathname, myUser.name]);
 
-    // ... (기존 useEffect 동일)
     useEffect(() => {
         setIsLeftSidebarOpen(false);
         setIsRightSidebarOpen(false);
@@ -79,6 +79,11 @@ function MainLayout() {
             const projectId = location.pathname.split('/chat/')[1];
             setNotifications(prev => ({ ...prev, [projectId]: { count: 0, hasNew: false } }));
             if(socket) socket.emit('joinRoom', projectId);
+        }
+        // 페이지 이동 시 프로젝트 ID 초기화 (대시보드 갔을 때 사이드바 닫기 위함)
+        if (location.pathname === '/dashboard') {
+            setCurrentProjectId(null);
+            setHeaderTitle('대시보드');
         }
     }, [location.pathname, socket]);
 
@@ -90,7 +95,6 @@ function MainLayout() {
 
     const handleInviteSubmit = async (e) => {
         e.preventDefault();
-        // ... (기존 코드와 동일)
         if (!inviteEmail.trim() || !currentProjectId) return;
         const token = localStorage.getItem('token');
         setInviteError('');
@@ -102,7 +106,6 @@ function MainLayout() {
         } catch (err) { setInviteError('초대 실패'); }
     };
 
-    // --- ‼️ (신규) 프로필 이미지 업로드 핸들러 ---
     const handleImageUpload = async (e) => {
         const file = e.target.files[0];
         if (!file) return;
@@ -118,7 +121,6 @@ function MainLayout() {
                     Authorization: `Bearer ${token}` 
                 }
             });
-            // 업로드 성공 시 상태 업데이트 (즉시 반영)
             setMyUser(prev => ({ ...prev, profile_image: response.data.profileImage }));
             alert('프로필 사진이 변경되었습니다.');
         } catch (error) {
@@ -132,7 +134,8 @@ function MainLayout() {
     };
 
     return (
-        <div className="app-layout">
+        /* ‼️ showRightSidebar 값에 따라 클래스(with-aside) 추가/제거 */
+        <div className={`app-layout ${showRightSidebar ? 'with-aside' : ''}`}>
             <header className="app-header">
                 <div className="header-left">
                     <button className="sidebar-toggle-btn" onClick={() => setIsLeftSidebarOpen(true)}><FaBars /></button>
@@ -142,7 +145,6 @@ function MainLayout() {
                 <div className="header-right">
                     <div className="profile-dropdown">
                         <div className="profile-trigger" onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}>
-                            {/* ‼️ 프로필 이미지 표시 */}
                             {myUser.profile_image ? (
                                 <img 
                                     src={`https://tphelper.onrender.com/${myUser.profile_image}`} 
@@ -157,7 +159,6 @@ function MainLayout() {
 
                         {isProfileMenuOpen && (
                             <div className="dropdown-menu">
-                                {/* ‼️ 사진 변경 버튼 */}
                                 <div className="dropdown-item" onClick={triggerFileInput}>
                                     <FaCamera /> 사진 변경
                                 </div>
@@ -166,7 +167,6 @@ function MainLayout() {
                                 </div>
                             </div>
                         )}
-                        {/* ‼️ 숨겨진 파일 입력창 */}
                         <input 
                             type="file" 
                             ref={fileInputRef} 
@@ -176,55 +176,59 @@ function MainLayout() {
                         />
                     </div>
 
-                    <button className="sidebar-toggle-btn" onClick={() => setIsRightSidebarOpen(true)}><FaUsers /></button>
+                    {/* ‼️ 오른쪽 사이드바 토글 버튼도 필요할 때만 표시 */}
+                    {showRightSidebar && (
+                        <button className="sidebar-toggle-btn" onClick={() => setIsRightSidebarOpen(true)}><FaUsers /></button>
+                    )}
                 </div>
             </header>
 
             <nav className={`app-sidebar ${isLeftSidebarOpen ? 'open' : ''}`}>
-                {/* ... (기존 사이드바 코드 동일) ... */}
                 <div className="sidebar-header">
-                    <Link to="/" className="sidebar-logo">TPHelper</Link>
+                    <Link to="/dashboard" className="sidebar-logo">TPHelper</Link>
                     <button className="sidebar-close-btn-mobile" onClick={() => setIsLeftSidebarOpen(false)}><FaTimes /></button>
                 </div>
                 <div className="sidebar-menu-container">
                     <ul className="main-nav-links">
-                        <li><Link to="/">내 프로젝트</Link></li>
+                        <li><Link to="/dashboard">내 프로젝트</Link></li> 
                         <li><Link to="/chat">팀 채팅</Link></li>
                     </ul>
                     <hr className="sidebar-divider" />
-                    {isChatActive ? <SidebarChatList socket={socket} notifications={notifications} /> : null}
+                    {isChatPage ? <SidebarChatList socket={socket} notifications={notifications} /> : null}
                 </div>
             </nav>
 
             <main className="app-content">
-                {/* ‼️ myUser.name을 자식에게 전달 */}
                 <Outlet context={{ setHeaderTitle, setMembers, setCurrentProjectId, socket, myUserName: myUser.name }} />
             </main>
 
-            <aside className={`app-aside ${isRightSidebarOpen ? 'open' : ''}`}>
-                <div className="sidebar-header mobile-only">
-                     <span className="sidebar-title">참여자</span>
-                     <button onClick={() => setIsRightSidebarOpen(false)}><FaTimes /></button>
-                </div>
-                <h4>참여자 ({members.length}명)</h4>
-                <ul className="member-list">
-                    {members.map(member => (
-                        <li key={member.id} className="member-item">
-                            <span className="member-name">{member.name}</span>
-                        </li>
-                    ))}
-                </ul>
-                {currentProjectId && (
-                    <div className="invite-section">
-                        <h4>팀원 초대하기</h4>
-                        <form onSubmit={handleInviteSubmit} className="invite-form">
-                            <input type="email" value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)} placeholder="초대할 이메일" />
-                            <button type="submit">초대</button>
-                            {inviteError && <p className="invite-error">{inviteError}</p>}
-                        </form>
+            {/* ‼️ showRightSidebar가 true일 때만 오른쪽 영역 렌더링 */}
+            {showRightSidebar && (
+                <aside className={`app-aside ${isRightSidebarOpen ? 'open' : ''}`}>
+                    <div className="sidebar-header mobile-only">
+                        <span className="sidebar-title">참여자</span>
+                        <button onClick={() => setIsRightSidebarOpen(false)}><FaTimes /></button>
                     </div>
-                )}
-            </aside>
+                    <h4>참여자 ({members.length}명)</h4>
+                    <ul className="member-list">
+                        {members.map(member => (
+                            <li key={member.id} className="member-item">
+                                <span className="member-name">{member.name}</span>
+                            </li>
+                        ))}
+                    </ul>
+                    {currentProjectId && (
+                        <div className="invite-section">
+                            <h4>팀원 초대하기</h4>
+                            <form onSubmit={handleInviteSubmit} className="invite-form">
+                                <input type="email" value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)} placeholder="초대할 이메일" />
+                                <button type="submit">초대</button>
+                                {inviteError && <p className="invite-error">{inviteError}</p>}
+                            </form>
+                        </div>
+                    )}
+                </aside>
+            )}
             
             {(isLeftSidebarOpen || isRightSidebarOpen) && (
                 <div className="overlay" onClick={() => { setIsLeftSidebarOpen(false); setIsRightSidebarOpen(false); setIsProfileMenuOpen(false); }}></div>
