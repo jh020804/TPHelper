@@ -1,14 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useOutletContext } from 'react-router-dom';
 import axios from 'axios';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
-import TaskModal from '../components/TaskModal'; // 모달 컴포넌트 불러오기
+import TaskModal from '../components/TaskModal';
 import './ProjectPage.css';
 
-// 환경 변수 또는 기본 URL 사용
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001';
 
-// 칸반 보드 컬럼 정의
 const STATUS_COLUMNS = {
     'To Do': '할 일',
     'In Progress': '진행 중',
@@ -20,6 +18,9 @@ function ProjectPage() {
     const navigate = useNavigate();
     const token = localStorage.getItem('token');
     
+    // 🚨 1. MainLayout과 소통하기 위한 Context 가져오기
+    const { setHeaderTitle, setMembers, setCurrentProjectId } = useOutletContext();
+
     const [projectData, setProjectData] = useState(null);
     const [newTask, setNewTask] = useState('');
     const [loading, setLoading] = useState(true);
@@ -27,6 +28,9 @@ function ProjectPage() {
     // 모달 관련 상태
     const [selectedTask, setSelectedTask] = useState(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
+
+    // 🚨 2. 초대 기능용 상태 추가
+    const [inviteEmail, setInviteEmail] = useState('');
 
     useEffect(() => {
         fetchProjectDetails();
@@ -37,7 +41,16 @@ function ProjectPage() {
             const res = await axios.get(`${API_URL}/api/projects/${projectId}`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
-            setProjectData(res.data.details);
+            
+            const data = res.data.details;
+            setProjectData(data);
+            
+            // 🚨 3. 레이아웃(오른쪽 사이드바)에 현재 프로젝트 정보 전달
+            // 이걸 해야 오른쪽 사이드바가 나오고 거기서도 초대가 됩니다.
+            setHeaderTitle(data.project.name);
+            setMembers(data.members);
+            setCurrentProjectId(projectId);
+            
             setLoading(false);
         } catch (error) {
             console.error(error);
@@ -45,7 +58,6 @@ function ProjectPage() {
         }
     };
 
-    // 1. 업무 추가 (To Do로 생성)
     const addTask = async () => {
         if (!newTask.trim()) return;
         try {
@@ -54,13 +66,12 @@ function ProjectPage() {
                 { headers: { Authorization: `Bearer ${token}` } }
             );
             setNewTask('');
-            fetchProjectDetails(); // 목록 새로고침
+            fetchProjectDetails();
         } catch (error) {
             alert('업무 추가 실패');
         }
     };
 
-    // 2. 드래그 앤 드롭 핸들러
     const onDragEnd = async (result) => {
         const { destination, source, draggableId } = result;
         if (!destination) return;
@@ -68,13 +79,11 @@ function ProjectPage() {
 
         const newStatus = destination.droppableId;
         
-        // UI 즉시 업데이트 (낙관적 업데이트)
         const updatedTasks = projectData.tasks.map(task => 
             task.id.toString() === draggableId ? { ...task, status: newStatus } : task
         );
         setProjectData(prev => ({ ...prev, tasks: updatedTasks }));
 
-        // 서버 전송
         try {
             const task = projectData.tasks.find(t => t.id.toString() === draggableId);
             await axios.patch(`${API_URL}/api/tasks/${draggableId}`, 
@@ -82,14 +91,29 @@ function ProjectPage() {
                 { headers: { Authorization: `Bearer ${token}` } }
             );
         } catch (error) {
-            fetchProjectDetails(); // 에러 시 원복
+            fetchProjectDetails();
         }
     };
 
-    // 3. 업무 클릭 시 모달 열기
     const handleTaskClick = (task) => {
         setSelectedTask(task);
         setIsModalOpen(true);
+    };
+
+    // 🚨 4. 팀원 초대 함수
+    const handleInvite = async () => {
+        if (!inviteEmail.trim()) return;
+        try {
+            await axios.post(`${API_URL}/api/projects/${projectId}/invite`, 
+                { email: inviteEmail }, 
+                { headers: { Authorization: `Bearer ${token}` } }
+            );
+            alert('초대가 완료되었습니다.');
+            setInviteEmail('');
+            fetchProjectDetails(); // 멤버 목록 갱신
+        } catch (error) {
+            alert('초대 실패: 이메일을 확인하거나 이미 멤버인지 확인하세요.');
+        }
     };
 
     if (loading) return <div className="loading">로딩 중...</div>;
@@ -105,7 +129,6 @@ function ProjectPage() {
                 <button className="chat-link-btn" onClick={() => navigate(`/chat/${projectId}`)}>💬 채팅방</button>
             </header>
 
-            {/* 업무 추가 입력창 */}
             <div className="task-input-section">
                 <input 
                     type="text" 
@@ -118,7 +141,6 @@ function ProjectPage() {
                 <button onClick={addTask} className="add-task-btn">추가</button>
             </div>
 
-            {/* 칸반 보드 영역 */}
             <DragDropContext onDragEnd={onDragEnd}>
                 <div className="kanban-board">
                     {Object.entries(STATUS_COLUMNS).map(([statusKey, statusLabel]) => {
@@ -143,7 +165,7 @@ function ProjectPage() {
                                                             ref={provided.innerRef}
                                                             {...provided.draggableProps}
                                                             {...provided.dragHandleProps}
-                                                            onClick={() => handleTaskClick(task)} // 클릭 시 모달 오픈
+                                                            onClick={() => handleTaskClick(task)}
                                                         >
                                                             <div className="task-content">{task.content}</div>
                                                             <div className="task-meta">
@@ -164,23 +186,36 @@ function ProjectPage() {
                 </div>
             </DragDropContext>
 
-            {/* 하단 멤버 목록 */}
+            {/* 🚨 5. 하단 멤버 섹션 + 초대 입력창 */}
             <div className="project-footer">
-                <h3>참여 멤버</h3>
-                <div className="member-avatars">
-                    {projectData.members.map(member => (
-                        <div key={member.id} className="footer-member" title={member.name}>{member.name[0]}</div>
-                    ))}
+                <div className="footer-left">
+                    <h3>참여 멤버 ({projectData.members.length})</h3>
+                    <div className="member-avatars">
+                        {projectData.members.map(member => (
+                            <div key={member.id} className="footer-member" title={member.name}>{member.name[0]}</div>
+                        ))}
+                    </div>
+                </div>
+                
+                {/* 상세 페이지에서 직접 초대하는 입력창 */}
+                <div className="footer-invite">
+                    <input 
+                        type="email" 
+                        placeholder="이메일로 팀원 초대" 
+                        value={inviteEmail}
+                        onChange={(e) => setInviteEmail(e.target.value)}
+                        className="invite-input-small"
+                    />
+                    <button onClick={handleInvite} className="invite-btn-small">초대</button>
                 </div>
             </div>
 
-            {/* 업무 상세 모달 */}
             {isModalOpen && selectedTask && (
                 <TaskModal 
                     task={selectedTask}
                     members={projectData.members}
                     onClose={() => setIsModalOpen(false)}
-                    onUpdate={fetchProjectDetails} // 수정/삭제 후 목록 갱신
+                    onUpdate={fetchProjectDetails}
                 />
             )}
         </div>
