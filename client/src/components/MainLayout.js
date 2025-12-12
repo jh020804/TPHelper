@@ -53,6 +53,15 @@ function MainLayout() {
                 setMyUser(response.data.user);
             } catch (e) {
                 console.error('Profile fetch failed:', e);
+                
+                // 🚨🚨 [핵심 수정] 401 Unauthorized 에러 발생 시 강제 로그아웃
+                if (e.response && e.response.status === 401) {
+                    console.log('401 Unauthorized: 토큰 만료/무효, 강제 로그아웃 처리');
+                    localStorage.removeItem('token');
+                    // 페이지 전체를 새로 로드하여 상태 꼬임을 방지
+                    window.location.href = '/login'; 
+                    return; // 함수 종료
+                }
             }
         };
         fetchProfile();
@@ -63,9 +72,9 @@ function MainLayout() {
         setSocket(newSocket);
 
         return () => newSocket.disconnect();
-    }, []);
+    }, [navigate]); // navigate를 의존성 배열에 추가 (React Hooks 규칙)
 
-    // 2. 실시간 메시지 수신 및 알림 처리
+    // 2. 실시간 메시지 수신 및 알림 처리 (기존과 동일)
     useEffect(() => {
         if (!socket) return;
         
@@ -94,7 +103,7 @@ function MainLayout() {
         return () => { socket.off('receiveMessage', handleReceiveMessage); };
     }, [socket, location.pathname]);
 
-    // 3. 페이지 이동 시 상태 관리 (알림 끄기 등)
+    // 3. 페이지 이동 시 상태 관리 (알림 끄기 등) (기존과 동일)
     useEffect(() => {
         setIsLeftSidebarOpen(false);
         setIsRightSidebarOpen(false);
@@ -118,14 +127,14 @@ function MainLayout() {
         }
     }, [location.pathname, socket]);
 
-    // 로그아웃
+    // 로그아웃 (기존과 동일)
     const handleLogout = () => {
         localStorage.removeItem('token');
         if(socket) socket.disconnect();
         navigate('/login');
     };
 
-    // 팀원 초대
+    // 팀원 초대 (기존과 동일)
     const handleInviteSubmit = async (e) => {
         e.preventDefault();
         if (!inviteEmail.trim() || !currentProjectId) return;
@@ -140,7 +149,7 @@ function MainLayout() {
         } catch (err) { setInviteError('초대 실패'); }
     };
 
-    // 프로필 이미지 업로드
+    // 프로필 이미지 업로드 (기존과 동일)
     const handleImageUpload = async (e) => {
         const file = e.target.files[0];
         if (!file) return;
