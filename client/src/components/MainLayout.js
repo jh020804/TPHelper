@@ -4,7 +4,7 @@ import axios from 'axios';
 import { io } from 'socket.io-client';
 import './MainLayout.css';
 import SidebarChatList from './SidebarChatList';
-import { FaBars, FaUsers, FaTimes, FaChevronDown, FaSignOutAlt, FaCamera } from 'react-icons/fa';
+import { FaBars, FaUsers, FaTimes, FaChevronDown, FaChevronRight, FaSignOutAlt, FaCamera } from 'react-icons/fa';
 
 // 🚨 API URL과 SOCKET URL 설정
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001';
@@ -31,6 +31,9 @@ function MainLayout() {
     const [isLeftSidebarOpen, setIsLeftSidebarOpen] = useState(false);
     const [isRightSidebarOpen, setIsRightSidebarOpen] = useState(false);
     const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
+
+    // 🆕 채팅 목록 열림/닫힘 상태 (기본값: true - 열림)
+    const [isChatListOpen, setIsChatListOpen] = useState(true);
 
     const fileInputRef = useRef(null);
 
@@ -221,17 +224,30 @@ function MainLayout() {
                 <div className="sidebar-menu-container">
                     <ul className="main-nav-links">
                         <li><Link to="/dashboard">내 프로젝트</Link></li> 
-                        {/* 팀 채팅 메뉴는 클릭 시 목록을 보여주는 역할만 하므로 링크 기능 제거 */}
-                        <li>
-                            <div style={{ padding: '12px 20px', color: '#666', fontWeight: 'bold', cursor: 'default' }}>
-                                팀 채팅 목록 👇
+                        
+                        {/* 🆕 토글 가능한 팀 채팅 목록 헤더 */}
+                        <li onClick={() => setIsChatListOpen(!isChatListOpen)} style={{ cursor: 'pointer' }}>
+                            <div style={{ 
+                                display: 'flex', 
+                                justifyContent: 'space-between', 
+                                alignItems: 'center', 
+                                padding: '12px 15px', 
+                                color: '#333', 
+                                fontWeight: 'bold' 
+                            }}>
+                                <span>팀 채팅 목록</span>
+                                {/* 상태에 따라 아이콘 변경 (아래/오른쪽) */}
+                                {isChatListOpen ? <FaChevronDown size={12} /> : <FaChevronRight size={12} />}
                             </div>
                         </li>
                     </ul>
-                    <hr className="sidebar-divider" />
                     
-                    {/* 🚨 채팅 목록 컴포넌트 렌더링 (여기에 알림 상태 전달) */}
-                    <SidebarChatList socket={socket} notifications={notifications} />
+                    {/* 🆕 상태가 true일 때만 목록 표시 */}
+                    {isChatListOpen && (
+                        <div className="sidebar-chat-wrapper" style={{ paddingLeft: '10px' }}>
+                            <SidebarChatList socket={socket} notifications={notifications} />
+                        </div>
+                    )}
                     
                 </div>
             </nav>
