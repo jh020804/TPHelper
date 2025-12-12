@@ -11,42 +11,36 @@ function LoginPage() {
     const navigate = useNavigate();
 
     const onSubmit = async (e) => {
-        e.preventDefault(); // 1. 새로고침 방지 (매우 중요)
-        
-        console.log("로그인 시도 중..."); // 로그 확인
+        e.preventDefault();
+        console.log("로그인 시도...");
 
         try {
             const response = await axios.post(`${API_URL}/api/users/login`, { email, password });
-            
-            // 2. 서버가 준 전체 응답 확인
-            console.log('서버 응답 전체:', response);
-            console.log('서버가 준 데이터:', response.data);
+            console.log('서버 응답:', response.data);
 
-            // 3. 토큰이 진짜 있는지 확인
             if (response.data.token) {
-                console.log('토큰 발견! 저장합니다:', response.data.token);
-                
-                // 토큰 저장
+                // 1. 토큰 저장 (필수)
                 localStorage.setItem('token', response.data.token);
-                localStorage.setItem('userId', response.data.user.id);
-                localStorage.setItem('userName', response.data.user.name);
-                
-                // 저장 확인
-                const savedToken = localStorage.getItem('token');
-                if (savedToken) {
-                    alert(`로그인 성공! 대시보드로 이동합니다.\n(토큰: ${savedToken.substring(0, 10)}...)`);
-                    navigate('/dashboard'); // 4. 이동 명령
+
+                // 2. 유저 정보 저장 (안전하게 처리: user 정보가 있을 때만 저장)
+                // 🚨 여기서 에러가 났던 것입니다. if문으로 감싸서 해결!
+                if (response.data.user) {
+                    localStorage.setItem('userId', response.data.user.id);
+                    localStorage.setItem('userName', response.data.user.name);
                 } else {
-                    alert('토큰 저장 실패! (브라우저 문제)');
+                    console.log('주의: 서버 응답에 유저 상세 정보가 없습니다. (토큰만 저장됨)');
                 }
+                
+                // 3. 대시보드로 이동
+                alert('로그인 성공!');
+                navigate('/dashboard');
             } else {
-                console.error('응답에 토큰이 없습니다!', response.data);
-                alert('로그인은 성공했지만, 서버가 토큰을 주지 않았습니다.');
+                alert('로그인 실패: 토큰이 없습니다.');
             }
 
         } catch (error) {
-            console.error('로그인 에러 발생:', error);
-            alert('로그인 에러: ' + (error.response?.data?.message || error.message));
+            console.error('로그인 에러:', error);
+            alert('로그인 에러: ' + (error.response?.data?.message || '알 수 없는 오류'));
         }
     };
 
