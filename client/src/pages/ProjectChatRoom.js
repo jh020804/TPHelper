@@ -1,96 +1,158 @@
-import React, { useEffect, useState, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useParams, useOutletContext } from 'react-router-dom';
 import axios from 'axios';
-import './ProjectChatRoom.css';
+import { FaPaperPlane } from 'react-icons/fa';
+import './ChatRoomPage.css';
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+// 🚨 수정: 환경 변수를 사용하여 API URL 정의
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001'; 
 
-function ProjectChatRoom() {
+function ChatRoomPage() {
     const { projectId } = useParams();
-    const navigate = useNavigate();
-    const token = localStorage.getItem('token');
-    
-    // 로컬 스토리지에 저장된 내 이름 (메시지 구분용)
-    const myName = localStorage.getItem('userName'); 
-    
+    const { setHeaderTitle, setMembers, setCurrentProjectId, socket, myUserName } = useOutletContext();
     const [messages, setMessages] = useState([]);
-    const [newMessage, setNewMessage] = useState('');
-    const messagesEndRef = useRef(null); // 자동 스크롤용
+    const [messageInput, setMessageInput] = useState('');
+    const [projectDetails, setProjectDetails] = useState(null);
+    const messagesEndRef = useRef(null);
+    const token = localStorage.getItem('token');
 
-    // 메시지 폴링 (3초마다)
-    useEffect(() => {
-        fetchMessages();
-        const interval = setInterval(fetchMessages, 3000);
-        return () => clearInterval(interval);
-    }, [projectId]);
+    // 스크롤을 맨 아래로 이동
+    const scrollToBottom = () => {
+        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    };
 
-    // 새 메시지 오면 자동 스크롤
-    useEffect(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, [messages]);
-
-    const fetchMessages = async () => {
+    // 프로젝트 및 메시지 로딩
+    const fetchChatData = useCallback(async () => {
         try {
-            const res = await axios.get(`${API_URL}/api/projects/${projectId}/messages`, {
+            // 🚨 수정: API URL에 환경 변수 사용
+            const projectRes = await axios.get(`${API_URL}/api/projects/${projectId}`, { 
+                headers: { Authorization: `Bearer ${token}` } 
+            });
+            setProjectDetails(projectRes.data.details.project);
+            setHeaderTitle(`팀 채팅: ${projectRes.data.details.project.name}`);
+            setMembers(projectRes.data.details.members);
+            setCurrentProjectId(projectId);
+
+            // 🚨 수정: API URL에 환경 변수 사용
+            const chatRes = await axios.get(`${API_URL}/api/projects/${projectId}/chat`, { 
+                headers: { Authorization: `Bearer ${token}` } 
+            });
+            setMessages(chatRes.data);
+            scrollToBottom();
+        } catch (error) {
+            console.error('Error fetching chat data:', error);
+        }
+    }, [projectId, setHeaderTitle, setMembers, setCurrentProjectId, token]);
+
+    useEffect(() => {
+        fetchChatData();
+    }, [fetchChatData]);
+    
+    // 소켓 메시지 수신 및 스크롤
+    useEffect(() => {
+        if (!socket) return;
+
+        const handleReceiveMessage = (data) => {
+            if (String(data.projectId) === projectId) {
+                setMessages(prev => [...prev, data]);
+                setTimeout(scrollToBottom, 0);
+            }
+        };
+
+        socket.on('receiveMessage', handleReceiveMessage);
+
+        return () => {
+            socket.off('receiveMessage', handleReceiveMessage);
+        };
+    }, [socket, projectId]);
+
+
+    // --- 🚨 핵심 수정: 메시지 전송 핸들러 ---
+    const handleSendMessage = async () => {
+        if (!messageInput.trim()) return;
+
+        const messageData = {
+            projectId: projectId,
+            content: messageInput,
+        };
+
+        // 1. 서버에 메시지 저장 요청
+        try {
+            // 🚨 수정: API URL에 환경 변수 사용
+            const response = await axios.post(`${API_URL}/api/projects/${projectId}/chat`, messageData, {
                 headers: { Authorization: `Bearer ${token}` }
             });
-            setMessages(res.data.messages);
+            
+            const newMessage = response.data;
+
+            // 2. Socket.io로 팀원들에게 메시지 전송
+            if (socket) {
+                socket.emit('sendMessage', newMessage);
+            }
+            
+            // 3. UI 즉시 업데이트 및 입력창 초기화
+            setMessages(prev => [...prev, newMessage]);
+            setMessageInput('');
+            setTimeout(scrollToBottom, 0);
+
         } catch (error) {
-            console.error('채팅 로드 실패');
+            console.error('메시지 전송 실패:', error);
+            alert('메시지 전송에 실패했습니다.');
         }
     };
+    // ------------------------------------
 
-    const sendMessage = async () => {
-        if (!newMessage.trim()) return;
-        // (현재 백엔드에는 메시지 저장 API가 없으므로 UI 테스트용 로그만 출력하거나, 
-        //  추후 socket.io 또는 POST API 구현 시 여기에 작성)
-        console.log("전송:", newMessage);
-        setNewMessage('');
-        // 임시로 화면에 추가 (백엔드 완성 전 테스트용)
-        // setMessages([...messages, { id: Date.now(), sender_name: myName, message: newMessage }]);
+    const formatTime = (isoString) => {
+        const date = new Date(isoString);
+        return date.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
     };
 
-    return (
-        <div className="chat-room-container">
-            <header className="chat-header">
-                <button className="back-btn" onClick={() => navigate(`/projects/${projectId}`)}>← 나가기</button>
-                <h3>프로젝트 채팅방</h3>
-            </header>
+    const isMentioned = (content) => {
+        return content.includes(`@${myUserName}`);
+    };
 
-            <div className="chat-messages-area">
-                {messages.length === 0 && <div className="no-chat">대화를 시작해보세요!</div>}
-                
-                {messages.map((msg) => {
-                    // 내 이름과 같으면 'my-message', 다르면 'other-message' 클래스 적용
-                    const isMe = msg.sender_name === myName;
+    // 현재 사용자 ID를 식별해야 정확한 UI 구현 가능. 
+    // 여기서는 name으로만 비교 (추후 id를 사용하는 것이 정확)
+    const currentUserName = myUserName; 
+
+    return (
+        <div className="chat-room-page">
+            <div className="messages-container">
+                {messages.map((msg, index) => {
+                    const isMyMessage = msg.user_name === currentUserName;
+                    const mentionClass = isMentioned(msg.content) ? 'message-mentioned' : '';
+
                     return (
-                        <div key={msg.id} className={`message-wrapper ${isMe ? 'my-message' : 'other-message'}`}>
-                            {!isMe && <div className="sender-name">{msg.sender_name}</div>}
-                            <div className="message-bubble">
-                                {msg.message}
-                            </div>
-                            <div className="message-time">
-                                {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        <div key={index} className={`message-row ${isMyMessage ? 'my-message' : 'other-message'}`}>
+                            <div className={`message-bubble ${mentionClass}`}>
+                                {!isMyMessage && <div className="message-sender">{msg.user_name}</div>}
+                                <div className="message-content">{msg.content}</div>
+                                <div className="message-time">{formatTime(msg.timestamp)}</div>
                             </div>
                         </div>
                     );
                 })}
                 <div ref={messagesEndRef} />
             </div>
-
-            <div className="chat-input-area">
-                <input 
-                    type="text" 
-                    className="chat-input"
-                    value={newMessage} 
-                    onChange={(e) => setNewMessage(e.target.value)} 
+            <div className="input-area">
+                <input
+                    type="text"
+                    className="message-input"
+                    value={messageInput}
+                    onChange={(e) => setMessageInput(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
                     placeholder="메시지를 입력하세요..."
-                    onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
                 />
-                <button onClick={sendMessage} className="send-btn">전송</button>
+                <button 
+                    className="send-button" 
+                    onClick={handleSendMessage}
+                    disabled={!messageInput.trim()}
+                >
+                    <FaPaperPlane />
+                </button>
             </div>
         </div>
     );
 }
 
-export default ProjectChatRoom;
+export default ChatRoomPage;

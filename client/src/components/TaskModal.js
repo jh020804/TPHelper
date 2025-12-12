@@ -1,124 +1,150 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import './TaskModal.css';
-import { FaPaperclip, FaTrash } from 'react-icons/fa';
 
-function TaskModal({ task, members, onClose, onSave, onDelete }) {
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+
+function TaskModal({ task, members, onClose, onUpdate }) {
     const [content, setContent] = useState(task.content);
-    const [assigneeId, setAssigneeId] = useState(task.assignee_id || '');
+    const [status, setStatus] = useState(task.status);
     const [dueDate, setDueDate] = useState(task.due_date ? task.due_date.split('T')[0] : '');
-    const [attachments, setAttachments] = useState([]);
+    const [assigneeId, setAssigneeId] = useState(task.assignee_id || '');
+    const [files, setFiles] = useState([]);
+    const token = localStorage.getItem('token');
 
     useEffect(() => {
-        setContent(task.content);
-        setAssigneeId(task.assignee_id || '');
-        setDueDate(task.due_date ? task.due_date.split('T')[0] : '');
-        
-        const fetchAttachments = async () => {
-            const token = localStorage.getItem('token');
-            try {
-                const res = await axios.get(`https://tphelper.onrender.com/api/tasks/${task.id}/files`, {
-                    headers: { Authorization: `Bearer ${token}` }
-                });
-                setAttachments(res.data.files);
-            } catch (e) { console.error('Fetch files error', e); }
-        };
-        fetchAttachments();
-    }, [task]);
+        fetchFiles();
+    }, [task.id]);
 
-    const handleSave = async (e) => {
-        e.preventDefault();
-        const token = localStorage.getItem('token');
-        const updatedFields = { content, assignee_id: assigneeId || null, due_date: dueDate || null };
+    const fetchFiles = async () => {
         try {
-            const response = await axios.patch(`https://tphelper.onrender.com/api/tasks/${task.id}`, updatedFields, { headers: { Authorization: `Bearer ${token}` } });
-            onSave(response.data.task);
-            onClose();
-        } catch (error) { alert('수정에 실패했습니다.'); }
+            const res = await axios.get(`${API_URL}/api/tasks/${task.id}/files`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            setFiles(res.data.files);
+        } catch (error) {
+            console.error(error);
+        }
+    };
+
+    const handleSave = async () => {
+        try {
+            await axios.patch(`${API_URL}/api/tasks/${task.id}`, 
+                { content, status, due_date: dueDate, assignee_id: assigneeId },
+                { headers: { Authorization: `Bearer ${token}` } }
+            );
+            alert('저장되었습니다.');
+            onUpdate(); // 목록 갱신
+            onClose();  // 창 닫기
+        } catch (error) {
+            alert('저장 실패');
+        }
+    };
+
+    // 🗑️ 삭제 기능 함수
+    const handleDelete = async () => {
+        // 1. 사용자 확인
+        if (!window.confirm('정말 이 업무를 삭제하시겠습니까?\n(삭제 후에는 복구할 수 없습니다)')) {
+            return;
+        }
+
+        try {
+            // 2. 서버에 삭제 요청
+            await axios.delete(`${API_URL}/api/tasks/${task.id}`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            
+            // 3. 성공 시 처리
+            alert('삭제되었습니다.');
+            onUpdate(); // 목록 갱신 (화면에서 사라짐)
+            onClose();  // 창 닫기
+        } catch (error) {
+            console.error(error);
+            alert('삭제에 실패했습니다.');
+        }
     };
 
     const handleFileUpload = async (e) => {
         const file = e.target.files[0];
         if (!file) return;
+        
         const formData = new FormData();
         formData.append('file', file);
-        const token = localStorage.getItem('token');
-        try {
-            const res = await axios.post(`https://tphelper.onrender.com/api/tasks/${task.id}/files`, formData, {
-                headers: { 'Content-Type': 'multipart/form-data', Authorization: `Bearer ${token}` }
-            });
-            setAttachments(prev => [...prev, res.data.file]); 
-        } catch (e) { alert('파일 업로드 실패'); }
-    };
 
-    const handleFileDelete = async (fileId) => {
-        if (!window.confirm("이 파일을 삭제하시겠습니까?")) return;
-        
-        const token = localStorage.getItem('token');
         try {
-            await axios.delete(`https://tphelper.onrender.com/api/files/${fileId}`, {
-                headers: { Authorization: `Bearer ${token}` }
+            await axios.post(`${API_URL}/api/tasks/${task.id}/files`, formData, {
+                headers: { 
+                    'Content-Type': 'multipart/form-data',
+                    Authorization: `Bearer ${token}` 
+                }
             });
-            setAttachments(prev => prev.filter(file => file.id !== fileId));
+            fetchFiles(); // 파일 목록 갱신
         } catch (error) {
-            console.error('파일 삭제 실패:', error);
-            alert('파일 삭제에 실패했습니다.');
+            alert('파일 업로드 실패');
         }
     };
 
     return (
         <div className="modal-overlay" onClick={onClose}>
             <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-                <form onSubmit={handleSave}>
-                    <h3>업무 수정하기</h3>
-                    <label>업무 내용</label>
-                    <textarea value={content} onChange={(e) => setContent(e.target.value)} rows="4" />
-                    <label>기한</label>
-                    <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
-                    <label>참여자</label>
-                    <select value={assigneeId} onChange={(e) => setAssigneeId(e.target.value)}>
-                        <option value="">담당자 없음</option>
-                        {members.map(member => (<option key={member.id} value={member.id}>{member.name}</option>))}
-                    </select>
+                <div className="modal-header">
+                    <h2>업무 상세 수정</h2>
+                    <button className="close-btn" onClick={onClose}>×</button>
+                </div>
+                
+                <div className="modal-body">
+                    <div className="form-group">
+                        <label>할 일 내용</label>
+                        <textarea value={content} onChange={(e) => setContent(e.target.value)} />
+                    </div>
 
-                    <div className="attachments-section">
-                        <label style={{marginTop: 0}}>첨부파일</label>
-                        <ul className="attachment-list">
-                            {attachments.length > 0 ? (
-                                attachments.map(file => (
-                                    <li key={file.id} className="attachment-item">
-                                        <a href={`https://tphelper.onrender.com/${file.file_url}`} download target="_blank" rel="noreferrer">
-                                            📄 {file.original_name}
-                                        </a>
-                                        <button 
-                                            type="button" 
-                                            className="btn-file-delete"
-                                            onClick={() => handleFileDelete(file.id)}
-                                        >
-                                            <FaTrash size={12} />
-                                        </button>
-                                    </li>
-                                ))
-                            ) : (
-                                <li style={{color: '#999', fontSize: '0.9rem'}}>첨부된 파일이 없습니다.</li>
-                            )}
+                    <div className="form-row">
+                        <div className="form-group">
+                            <label>상태</label>
+                            <select value={status} onChange={(e) => setStatus(e.target.value)}>
+                                <option value="To Do">할 일</option>
+                                <option value="In Progress">진행 중</option>
+                                <option value="Done">완료</option>
+                            </select>
+                        </div>
+                        <div className="form-group">
+                            <label>마감일</label>
+                            <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
+                        </div>
+                    </div>
+
+                    <div className="form-group">
+                        <label>담당자</label>
+                        <select value={assigneeId} onChange={(e) => setAssigneeId(e.target.value)}>
+                            <option value="">미배정</option>
+                            {members.map(m => (
+                                <option key={m.id} value={m.id}>{m.name}</option>
+                            ))}
+                        </select>
+                    </div>
+
+                    <div className="file-section">
+                        <h4>첨부 파일</h4>
+                        <ul className="file-list">
+                            {files.map(f => (
+                                <li key={f.id}>
+                                    <a href={`${API_URL}/${f.file_url}`} target="_blank" rel="noopener noreferrer">
+                                        📄 {f.original_name}
+                                    </a>
+                                </li>
+                            ))}
                         </ul>
-                        <label className="upload-label">
-                            <FaPaperclip /> 파일 추가
-                            <input type="file" style={{display:'none'}} onChange={handleFileUpload} />
-                        </label>
+                        <input type="file" onChange={handleFileUpload} className="file-input" />
                     </div>
+                </div>
 
-                    <div className="modal-footer">
-                        <div className="footer-left">
-                            <button type="button" className="btn-delete" onClick={() => onDelete(task.id)}>삭제</button>
-                        </div>
-                        <div className="footer-right">
-                            <button type="button" onClick={onClose} className="btn-cancel">취소</button>
-                            <button type="submit" className="btn-save">저장</button>
-                        </div>
-                    </div>
-                </form>
+                <div className="modal-footer">
+                    {/* 🗑️ 삭제 버튼 (왼쪽) */}
+                    <button className="delete-btn" onClick={handleDelete}>삭제하기</button>
+                    
+                    {/* 저장 버튼 (오른쪽) */}
+                    <button className="save-btn" onClick={handleSave}>저장하기</button>
+                </div>
             </div>
         </div>
     );

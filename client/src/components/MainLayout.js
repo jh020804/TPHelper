@@ -6,11 +6,16 @@ import './MainLayout.css';
 import SidebarChatList from './SidebarChatList';
 import { FaBars, FaUsers, FaTimes, FaChevronDown, FaSignOutAlt, FaCamera } from 'react-icons/fa';
 
+// 🚨 핵심 수정: 서버의 ROOT URL을 환경 변수 또는 직접 배포 주소로 설정
+// 서버 배포 주소를 직접 지정하거나, 환경 변수를 사용해야 합니다.
+// 서버는 API_URL의 도메인과 동일해야 하므로, API_URL을 기준으로 소켓 URL을 만듭니다.
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+const SOCKET_URL = API_URL.replace('/api', ''); // API 경로를 제외한 루트 도메인
+
 function MainLayout() {
     const navigate = useNavigate();
     const location = useLocation();
     
-    // 현재 채팅방에 있거나 프로젝트 상세 페이지에 있는지 확인
     const isChatPage = location.pathname.startsWith('/chat');
     
     const [socket, setSocket] = useState(null);
@@ -30,7 +35,6 @@ function MainLayout() {
 
     const fileInputRef = useRef(null);
 
-    // ‼️ 오른쪽 사이드바가 필요한 상황인지 판단 (프로젝트 ID가 있거나 채팅 페이지일 때)
     const showRightSidebar = currentProjectId || isChatPage;
 
     useEffect(() => {
@@ -39,7 +43,8 @@ function MainLayout() {
 
         const fetchProfile = async () => {
             try {
-                const response = await axios.get('https://tphelper.onrender.com/api/users/profile', {
+                // 🚨 수정: API URL에 환경 변수 사용
+                const response = await axios.get(`${API_URL}/api/users/profile`, {
                     headers: { Authorization: `Bearer ${token}` }
                 });
                 setMyUser(response.data.user);
@@ -49,11 +54,15 @@ function MainLayout() {
         };
         fetchProfile();
 
-        const newSocket = io('https://tphelper.onrender.com');
+        // 🚨 핵심 수정: Socket.io 연결 주소에 SOCKET_URL 사용
+        const newSocket = io(SOCKET_URL, {
+            // CORS 및 연결 문제를 방지하기 위해 트랜스포트 설정 권장
+            transports: ['websocket', 'polling']
+        });
         setSocket(newSocket);
 
         return () => newSocket.disconnect();
-    }, []);
+    }, []); // 의존성 배열 비워 초기 1회 실행 보장
 
     useEffect(() => {
         if (!socket) return;
@@ -80,7 +89,6 @@ function MainLayout() {
             setNotifications(prev => ({ ...prev, [projectId]: { count: 0, hasNew: false } }));
             if(socket) socket.emit('joinRoom', projectId);
         }
-        // 페이지 이동 시 프로젝트 ID 초기화 (대시보드 갔을 때 사이드바 닫기 위함)
         if (location.pathname === '/dashboard') {
             setCurrentProjectId(null);
             setHeaderTitle('대시보드');
@@ -99,8 +107,10 @@ function MainLayout() {
         const token = localStorage.getItem('token');
         setInviteError('');
         try {
-            await axios.post(`https://tphelper.onrender.com/api/projects/${currentProjectId}/invite`, { email: inviteEmail }, { headers: { Authorization: `Bearer ${token}` } });
-            const response = await axios.get(`https://tphelper.onrender.com/api/projects/${currentProjectId}`, { headers: { Authorization: `Bearer ${token}` } });
+            // 🚨 수정: API URL에 환경 변수 사용
+            await axios.post(`${API_URL}/api/projects/${currentProjectId}/invite`, { email: inviteEmail }, { headers: { Authorization: `Bearer ${token}` } });
+            // 🚨 수정: API URL에 환경 변수 사용
+            const response = await axios.get(`${API_URL}/api/projects/${currentProjectId}`, { headers: { Authorization: `Bearer ${token}` } });
             setMembers(response.data.details.members);
             setInviteEmail(''); 
         } catch (err) { setInviteError('초대 실패'); }
@@ -115,7 +125,8 @@ function MainLayout() {
 
         try {
             const token = localStorage.getItem('token');
-            const response = await axios.post('https://tphelper.onrender.com/api/users/profile-image', formData, {
+            // 🚨 수정: API URL에 환경 변수 사용
+            const response = await axios.post(`${API_URL}/api/users/profile-image`, formData, {
                 headers: { 
                     'Content-Type': 'multipart/form-data',
                     Authorization: `Bearer ${token}` 
@@ -134,7 +145,6 @@ function MainLayout() {
     };
 
     return (
-        /* ‼️ showRightSidebar 값에 따라 클래스(with-aside) 추가/제거 */
         <div className={`app-layout ${showRightSidebar ? 'with-aside' : ''}`}>
             <header className="app-header">
                 <div className="header-left">
@@ -147,7 +157,8 @@ function MainLayout() {
                         <div className="profile-trigger" onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}>
                             {myUser.profile_image ? (
                                 <img 
-                                    src={`https://tphelper.onrender.com/${myUser.profile_image}`} 
+                                    // 🚨 수정: API URL에 환경 변수 사용 (이미지 경로)
+                                    src={`${API_URL}/${myUser.profile_image}`} 
                                     alt="Profile" 
                                     className="header-profile-img"
                                 />
@@ -176,7 +187,6 @@ function MainLayout() {
                         />
                     </div>
 
-                    {/* ‼️ 오른쪽 사이드바 토글 버튼도 필요할 때만 표시 */}
                     {showRightSidebar && (
                         <button className="sidebar-toggle-btn" onClick={() => setIsRightSidebarOpen(true)}><FaUsers /></button>
                     )}
@@ -202,7 +212,6 @@ function MainLayout() {
                 <Outlet context={{ setHeaderTitle, setMembers, setCurrentProjectId, socket, myUserName: myUser.name }} />
             </main>
 
-            {/* ‼️ showRightSidebar가 true일 때만 오른쪽 영역 렌더링 */}
             {showRightSidebar && (
                 <aside className={`app-aside ${isRightSidebarOpen ? 'open' : ''}`}>
                     <div className="sidebar-header mobile-only">
