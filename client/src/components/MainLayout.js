@@ -263,13 +263,51 @@ function MainLayout() {
                         <button onClick={() => setIsRightSidebarOpen(false)}><FaTimes /></button>
                     </div>
                     <h4>참여자 ({members.length}명)</h4>
-                    <ul className="member-list">
+                    
+                    {/* 👇👇👇 수정된 부분: 이미지와 이름 함께 출력 👇👇👇 */}
+                    <ul className="member-list" style={{ listStyle: 'none', padding: 0 }}>
                         {members.map(member => (
-                            <li key={member.id} className="member-item">
+                            <li key={member.id} className="member-item" style={{ display: 'flex', alignItems: 'center', marginBottom: '12px' }}>
+                                {/* 프로필 이미지 또는 기본 아바타 */}
+                                {member.profile_image ? (
+                                    <img 
+                                        src={`${API_URL}/${member.profile_image}`} 
+                                        alt={member.name}
+                                        style={{
+                                            width: '32px',
+                                            height: '32px',
+                                            borderRadius: '50%',
+                                            objectFit: 'cover',
+                                            marginRight: '10px',
+                                            border: '1px solid #eee'
+                                        }}
+                                        onError={(e) => {
+                                            e.target.style.display='none'; // 이미지 로드 실패시 숨김 처리 (혹은 기본이미지로 대체)
+                                        }}
+                                    />
+                                ) : (
+                                    <div style={{
+                                        width: '32px',
+                                        height: '32px',
+                                        borderRadius: '50%',
+                                        backgroundColor: '#ddd',
+                                        color: '#555',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        fontSize: '14px',
+                                        fontWeight: 'bold',
+                                        marginRight: '10px'
+                                    }}>
+                                        {member.name ? member.name[0] : '?'}
+                                    </div>
+                                )}
                                 <span className="member-name">{member.name}</span>
                             </li>
                         ))}
                     </ul>
+                    {/* 👆👆👆 수정 완료 👆👆👆 */}
+
                     {currentProjectId && (
                         <div className="invite-section">
                             <h4>팀원 초대하기</h4>
