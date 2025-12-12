@@ -24,10 +24,11 @@
     justify-content: space-between;
     align-items: center;
     margin-bottom: 20px;
-    border-bottom: 1px solid #f0f0f0; /* 헤더 구분선 추가 */
+    border-bottom: 1px solid #f0f0f0;
     padding-bottom: 10px;
 }
 
+/* 🚨 기존 h2 대신 입력창이 들어가므로 스타일을 맞춥니다 */
 .modal-header h2 {
     margin: 0;
     font-size: 1.25rem;
@@ -62,26 +63,39 @@
     color: #555;
 }
 
-/* 🚨 새로 추가된 제목 입력창 스타일 */
+/* 🚨🚨 [중요] 새로 추가된 제목 입력창 스타일 🚨🚨 */
+/* 이 부분이 없으면 제목 입력칸이 일반 칸처럼 보입니다 */
 .title-input {
-    font-size: 1.1rem !important; /* 글자 조금 크게 */
-    font-weight: bold;
+    width: 100%; /* 가득 차게 */
+    font-size: 1.3rem !important; /* 글자 크기 키움 */
+    font-weight: bold; /* 굵게 */
     color: #333;
+    padding: 8px;
+    border: none; /* 테두리 없애기 (선택사항) */
+    border-bottom: 2px solid #ddd; /* 밑줄만 표시 */
+    outline: none;
+    margin-right: 10px;
+    background: transparent;
 }
 
+.title-input:focus {
+    border-bottom-color: #007bff; /* 포커스 시 파란 밑줄 */
+}
+
+/* 기존 textarea 등 스타일 유지 */
 .form-group textarea {
     width: 100%;
-    height: 100px; /* 높이 약간 증가 */
+    height: 120px; /* 높이 조금 더 확보 */
     padding: 10px;
     border-radius: 6px;
     border: 1px solid #ddd;
-    resize: vertical; /* 세로로만 리사이즈 가능 */
+    resize: vertical;
     box-sizing: border-box;
     font-family: inherit;
     font-size: 0.95rem;
 }
 
-.form-group select, .form-group input {
+.form-group select, .form-group input:not(.title-input) {
     width: 100%;
     padding: 10px;
     border-radius: 6px;
@@ -91,7 +105,7 @@
 }
 
 /* 포커스 효과 */
-.form-group input:focus, 
+.form-group input:not(.title-input):focus, 
 .form-group select:focus, 
 .form-group textarea:focus {
     outline: none;
@@ -140,7 +154,6 @@
     font-size: 0.9rem;
 }
 
-/* 파일명 링크 스타일 */
 .file-list a {
     color: #007bff;
     text-decoration: none;
@@ -154,7 +167,6 @@
     text-decoration: underline;
 }
 
-/* 파일 삭제 버튼 */
 .file-delete-btn {
     background: none;
     border: none;

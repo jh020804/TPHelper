@@ -22,7 +22,8 @@ function ProjectPage() {
     const { setHeaderTitle, setMembers, setCurrentProjectId } = useOutletContext();
 
     const [projectData, setProjectData] = useState(null);
-    const [newTask, setNewTask] = useState('');
+    // 🚨 변수명 의미 명확화: newTask -> newTaskTitle
+    const [newTaskTitle, setNewTaskTitle] = useState('');
     const [loading, setLoading] = useState(true);
 
     // 모달 관련 상태
@@ -31,6 +32,7 @@ function ProjectPage() {
 
     useEffect(() => {
         fetchProjectDetails();
+        // eslint-disable-next-line
     }, [projectId]);
 
     const fetchProjectDetails = async () => {
@@ -42,7 +44,7 @@ function ProjectPage() {
             const data = res.data.details;
             setProjectData(data);
             
-            // 🚨 MainLayout(오른쪽 사이드바)에 정보 전달 (중요!)
+            // MainLayout(오른쪽 사이드바)에 정보 전달
             setHeaderTitle(data.project.name);
             setMembers(data.members);
             setCurrentProjectId(projectId);
@@ -55,13 +57,18 @@ function ProjectPage() {
     };
 
     const addTask = async () => {
-        if (!newTask.trim()) return;
+        if (!newTaskTitle.trim()) return;
         try {
+            // 🚨 수정: content가 아니라 title로 전송
             await axios.post(`${API_URL}/api/projects/${projectId}/tasks`, 
-                { content: newTask, status: 'To Do' },
+                { 
+                    title: newTaskTitle, // 제목으로 저장
+                    content: '',         // 내용은 비워둠 (상세에서 입력)
+                    status: 'To Do' 
+                },
                 { headers: { Authorization: `Bearer ${token}` } }
             );
-            setNewTask('');
+            setNewTaskTitle('');
             fetchProjectDetails();
         } catch (error) {
             alert('업무 추가 실패');
@@ -113,9 +120,9 @@ function ProjectPage() {
                 <input 
                     type="text" 
                     className="task-input"
-                    value={newTask} 
-                    onChange={(e) => setNewTask(e.target.value)} 
-                    placeholder="새로운 할 일을 입력하세요"
+                    value={newTaskTitle} 
+                    onChange={(e) => setNewTaskTitle(e.target.value)} 
+                    placeholder="할 일 제목을 입력하세요" // 🚨 플레이스홀더 변경
                     onKeyPress={(e) => e.key === 'Enter' && addTask()}
                 />
                 <button onClick={addTask} className="add-task-btn">추가</button>
@@ -147,8 +154,14 @@ function ProjectPage() {
                                                             {...provided.dragHandleProps}
                                                             onClick={() => handleTaskClick(task)}
                                                         >
-                                                            <div className="task-content">{task.content}</div>
+                                                            {/* 🚨 수정: content 대신 title 표시 */}
+                                                            <div className="task-content" style={{ fontWeight: 'bold' }}>
+                                                                {task.title}
+                                                            </div>
+                                                            
                                                             <div className="task-meta">
+                                                                {/* 내용이 있으면 아이콘 표시 (선택사항) */}
+                                                                {task.content && <span style={{ marginRight: '5px' }}>📝</span>}
                                                                 {task.assignee_name && <span className="task-assignee">👤 {task.assignee_name}</span>}
                                                                 {task.due_date && <span className="task-date">📅 {task.due_date.split('T')[0]}</span>}
                                                             </div>
@@ -165,8 +178,6 @@ function ProjectPage() {
                     })}
                 </div>
             </DragDropContext>
-
-            {/* 🗑️ 하단 멤버/초대 섹션 제거됨 */}
 
             {isModalOpen && selectedTask && (
                 <TaskModal 

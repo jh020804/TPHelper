@@ -5,19 +5,27 @@ import './TaskModal.css';
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001';
 
 function TaskModal({ task, members, onClose, onUpdate }) {
-    // 🚨 수정: 제목(title) 상태 추가
+    // State 초기화
     const [title, setTitle] = useState(task.title || '');
     const [content, setContent] = useState(task.content || '');
-    const [status, setStatus] = useState(task.status);
+    const [status, setStatus] = useState(task.status || 'To Do');
     const [dueDate, setDueDate] = useState(task.due_date ? task.due_date.split('T')[0] : '');
     const [assigneeId, setAssigneeId] = useState(task.assignee_id || '');
     const [files, setFiles] = useState([]);
     const token = localStorage.getItem('token');
 
+    // 🚨 중요: 모달이 열리거나 task가 바뀔 때 State를 props와 동기화
+    // 이 부분이 없으면 다른 카드를 눌러도 이전 데이터가 보이거나, 입력 중 사라지는 문제가 발생할 수 있습니다.
     useEffect(() => {
+        setTitle(task.title || '');
+        setContent(task.content || '');
+        setStatus(task.status || 'To Do');
+        setDueDate(task.due_date ? task.due_date.split('T')[0] : '');
+        setAssigneeId(task.assignee_id || '');
+        
         fetchFiles();
         // eslint-disable-next-line
-    }, [task.id]);
+    }, [task.id]); // task.id가 바뀔 때만 실행
 
     const fetchFiles = async () => {
         try {
@@ -34,7 +42,6 @@ function TaskModal({ task, members, onClose, onUpdate }) {
         if (!title.trim()) return alert("제목을 입력해주세요.");
 
         try {
-            // 🚨 수정: title 필드 포함하여 전송
             await axios.patch(`${API_URL}/api/tasks/${task.id}`, 
                 { title, content, status, due_date: dueDate, assignee_id: assigneeId },
                 { headers: { Authorization: `Bearer ${token}` } }
@@ -104,7 +111,6 @@ function TaskModal({ task, members, onClose, onUpdate }) {
                 </div>
                 
                 <div className="modal-body">
-                    {/* 🚨 수정: 제목 입력 필드 추가 */}
                     <div className="form-group">
                         <label>업무 제목</label>
                         <input 
@@ -129,9 +135,9 @@ function TaskModal({ task, members, onClose, onUpdate }) {
                         <div className="form-group">
                             <label>상태</label>
                             <select value={status} onChange={(e) => setStatus(e.target.value)}>
-                                <option value="todo">할 일 (To Do)</option>
-                                <option value="in_progress">진행 중 (In Progress)</option>
-                                <option value="done">완료 (Done)</option>
+                                <option value="To Do">할 일 (To Do)</option>
+                                <option value="In Progress">진행 중 (In Progress)</option>
+                                <option value="Done">완료 (Done)</option>
                             </select>
                         </div>
                         <div className="form-group">
