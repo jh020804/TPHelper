@@ -22,7 +22,7 @@ function ProjectChatRoom({ projectId }) {
     useEffect(() => {
         const token = localStorage.getItem('token');
         if (token) {
-            axios.get(`${API_URL}/api/profile`, {
+            axios.get(`${API_URL}/api/users/profile`, {
                 headers: { Authorization: `Bearer ${token}` }
             }).then(res => {
                 setUserId(res.data.user.id);
