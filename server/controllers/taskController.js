@@ -3,6 +3,7 @@ const dbConfig = require('../config/db');
 
 // 업무 생성
 exports.createTask = async (req, res) => {
+    console.log("🔥 서버가 받은 수정 요청 데이터:", req.body);
     try {
         const { projectId } = req.params;
         // 🚨 수정 1: req.body에서 title을 꺼냅니다.
