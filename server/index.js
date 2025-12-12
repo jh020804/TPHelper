@@ -22,10 +22,10 @@ app.use('/api/users', userRoutes);
 app.use('/api/projects', projectRoutes);
 app.use('/api/tasks', taskRoutes);
 
-// 🚨 Socket.io 설정 (실시간 통신의 핵심)
+// Socket.io 설정
 const io = new Server(server, {
     cors: {
-        origin: "*", // 모든 도메인에서 접속 허용 (배포 시 프론트엔드 도메인으로 제한 권장)
+        origin: "*", 
         methods: ["GET", "POST"]
     }
 });
@@ -35,16 +35,27 @@ io.on('connection', (socket) => {
 
     // 1. 방 입장 (Join Room)
     socket.on('joinRoom', (projectId) => {
-        socket.join(String(projectId)); // 숫자일 수 있으므로 문자열로 변환
-        console.log(`User ${socket.id} joined room: ${projectId}`);
+        // 안전하게 문자열로 변환하여 입장
+        const room = String(projectId);
+        socket.join(room);
+        console.log(`User ${socket.id} joined room: ${room}`);
     });
 
-    // 2. 메시지 전송 및 중계 (Send & Broadcast)
+    // 2. 메시지 전송 (Send & Broadcast)
     socket.on('sendMessage', (data) => {
-        console.log(`Message in room ${data.projectId}:`, data.content);
-        
-        // 중요: 해당 방(projectId)에 있는 *모든* 사람에게 메시지 전송
-        io.to(String(data.projectId)).emit('receiveMessage', data);
+        // 🚨 핵심 수정: projectId 또는 project_id 둘 중 하나라도 있으면 사용
+        const roomId = data.projectId || data.project_id;
+
+        if (roomId) {
+            console.log(`Broadcasting to room ${roomId}:`, data.content);
+            // 해당 방에 있는 모두에게 메시지 전송
+            io.to(String(roomId)).emit('receiveMessage', {
+                ...data,
+                projectId: roomId // 받는 쪽 편의를 위해 projectId로 통일해서 보냄
+            });
+        } else {
+            console.error('Message missing projectId:', data);
+        }
     });
 
     socket.on('disconnect', () => {
