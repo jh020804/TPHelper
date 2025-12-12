@@ -5,7 +5,9 @@ import './TaskModal.css';
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001';
 
 function TaskModal({ task, members, onClose, onUpdate }) {
-    const [content, setContent] = useState(task.content);
+    // 🚨 수정: 제목(title) 상태 추가
+    const [title, setTitle] = useState(task.title || '');
+    const [content, setContent] = useState(task.content || '');
     const [status, setStatus] = useState(task.status);
     const [dueDate, setDueDate] = useState(task.due_date ? task.due_date.split('T')[0] : '');
     const [assigneeId, setAssigneeId] = useState(task.assignee_id || '');
@@ -14,6 +16,7 @@ function TaskModal({ task, members, onClose, onUpdate }) {
 
     useEffect(() => {
         fetchFiles();
+        // eslint-disable-next-line
     }, [task.id]);
 
     const fetchFiles = async () => {
@@ -28,15 +31,19 @@ function TaskModal({ task, members, onClose, onUpdate }) {
     };
 
     const handleSave = async () => {
+        if (!title.trim()) return alert("제목을 입력해주세요.");
+
         try {
+            // 🚨 수정: title 필드 포함하여 전송
             await axios.patch(`${API_URL}/api/tasks/${task.id}`, 
-                { content, status, due_date: dueDate, assignee_id: assigneeId },
+                { title, content, status, due_date: dueDate, assignee_id: assigneeId },
                 { headers: { Authorization: `Bearer ${token}` } }
             );
             alert('저장되었습니다.');
             onUpdate();
             onClose();
         } catch (error) {
+            console.error(error);
             alert('저장 실패');
         }
     };
@@ -55,14 +62,12 @@ function TaskModal({ task, members, onClose, onUpdate }) {
         }
     };
 
-    // 🚨 파일 삭제 핸들러 (추가됨)
     const handleDeleteFile = async (fileId) => {
         if (!window.confirm('이 파일을 삭제하시겠습니까?')) return;
         try {
             await axios.delete(`${API_URL}/api/tasks/files/${fileId}`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
-            // 목록 갱신
             fetchFiles(); 
         } catch (error) {
             console.error(error);
@@ -99,18 +104,34 @@ function TaskModal({ task, members, onClose, onUpdate }) {
                 </div>
                 
                 <div className="modal-body">
+                    {/* 🚨 수정: 제목 입력 필드 추가 */}
                     <div className="form-group">
-                        <label>할 일 내용</label>
-                        <textarea value={content} onChange={(e) => setContent(e.target.value)} />
+                        <label>업무 제목</label>
+                        <input 
+                            type="text" 
+                            className="title-input"
+                            value={title} 
+                            onChange={(e) => setTitle(e.target.value)} 
+                            placeholder="업무 제목을 입력하세요"
+                        />
+                    </div>
+
+                    <div className="form-group">
+                        <label>상세 내용</label>
+                        <textarea 
+                            value={content} 
+                            onChange={(e) => setContent(e.target.value)} 
+                            placeholder="업무에 대한 상세 설명을 입력하세요"
+                        />
                     </div>
 
                     <div className="form-row">
                         <div className="form-group">
                             <label>상태</label>
                             <select value={status} onChange={(e) => setStatus(e.target.value)}>
-                                <option value="To Do">할 일</option>
-                                <option value="In Progress">진행 중</option>
-                                <option value="Done">완료</option>
+                                <option value="todo">할 일 (To Do)</option>
+                                <option value="in_progress">진행 중 (In Progress)</option>
+                                <option value="done">완료 (Done)</option>
                             </select>
                         </div>
                         <div className="form-group">
@@ -137,7 +158,6 @@ function TaskModal({ task, members, onClose, onUpdate }) {
                                     <a href={`${API_URL}/${f.file_url}`} target="_blank" rel="noopener noreferrer">
                                         📄 {f.original_name}
                                     </a>
-                                    {/* 🚨 삭제 버튼 추가 */}
                                     <button 
                                         className="file-delete-btn" 
                                         onClick={() => handleDeleteFile(f.id)}

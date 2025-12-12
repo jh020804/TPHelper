@@ -24,17 +24,30 @@
     justify-content: space-between;
     align-items: center;
     margin-bottom: 20px;
+    border-bottom: 1px solid #f0f0f0; /* 헤더 구분선 추가 */
+    padding-bottom: 10px;
+}
+
+.modal-header h2 {
+    margin: 0;
+    font-size: 1.25rem;
+    color: #333;
 }
 
 .close-btn {
     background: none;
     border: none;
-    font-size: 24px;
+    font-size: 28px;
     cursor: pointer;
     color: #888;
+    line-height: 1;
 }
 .close-btn:hover {
     color: #333;
+}
+
+.modal-body {
+    padding: 5px 0;
 }
 
 .form-group {
@@ -44,20 +57,28 @@
 .form-group label {
     display: block;
     font-weight: bold;
-    margin-bottom: 5px;
+    margin-bottom: 6px;
     font-size: 0.9rem;
     color: #555;
 }
 
+/* 🚨 새로 추가된 제목 입력창 스타일 */
+.title-input {
+    font-size: 1.1rem !important; /* 글자 조금 크게 */
+    font-weight: bold;
+    color: #333;
+}
+
 .form-group textarea {
     width: 100%;
-    height: 80px;
+    height: 100px; /* 높이 약간 증가 */
     padding: 10px;
     border-radius: 6px;
     border: 1px solid #ddd;
-    resize: none;
+    resize: vertical; /* 세로로만 리사이즈 가능 */
     box-sizing: border-box;
     font-family: inherit;
+    font-size: 0.95rem;
 }
 
 .form-group select, .form-group input {
@@ -66,6 +87,16 @@
     border-radius: 6px;
     border: 1px solid #ddd;
     box-sizing: border-box;
+    font-size: 0.95rem;
+}
+
+/* 포커스 효과 */
+.form-group input:focus, 
+.form-group select:focus, 
+.form-group textarea:focus {
+    outline: none;
+    border-color: #007bff;
+    box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.1);
 }
 
 .form-row {
@@ -79,14 +110,14 @@
 
 /* --- 첨부 파일 영역 --- */
 .file-section {
-    margin-top: 20px;
+    margin-top: 25px;
     border-top: 1px solid #eee;
     padding-top: 15px;
 }
 
 .file-section h4 {
     margin-top: 0;
-    margin-bottom: 10px;
+    margin-bottom: 12px;
     font-size: 0.95rem;
     color: #333;
 }
@@ -94,34 +125,36 @@
 .file-list {
     list-style: none;
     padding: 0;
-    margin-bottom: 10px;
+    margin-bottom: 12px;
 }
 
-/* 🚨 파일 리스트 아이템 수정: Flexbox로 배치 */
 .file-item {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 8px 0;
-    border-bottom: 1px solid #f8f9fa;
+    padding: 10px;
+    border: 1px solid #f1f1f1;
+    border-radius: 6px;
+    margin-bottom: 5px;
+    background-color: #fafafa;
     font-size: 0.9rem;
 }
 
-/* 파일명 링크 스타일 (너무 길면 잘리게 처리) */
+/* 파일명 링크 스타일 */
 .file-list a {
     color: #007bff;
     text-decoration: none;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    max-width: 85%; /* 버튼 공간 확보 */
+    max-width: 85%;
     display: block;
 }
 .file-list a:hover {
     text-decoration: underline;
 }
 
-/* 🚨 파일 삭제 버튼 (작은 빨간색 X) */
+/* 파일 삭제 버튼 */
 .file-delete-btn {
     background: none;
     border: none;
@@ -129,18 +162,15 @@
     font-weight: bold;
     font-size: 1.2rem;
     cursor: pointer;
-    padding: 0 5px;
+    padding: 2px 8px;
     line-height: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    border-radius: 4px;
     transition: all 0.2s;
 }
 
 .file-delete-btn:hover {
     color: #c82333;
     background-color: #ffe3e3;
-    border-radius: 4px;
 }
 
 .file-input {
@@ -151,17 +181,16 @@
 /* --- 하단 버튼 영역 --- */
 .modal-footer {
     display: flex;
-    justify-content: space-between; /* 양 끝 정렬 */
+    justify-content: space-between;
     margin-top: 25px;
     padding-top: 20px;
     border-top: 1px solid #eee;
 }
 
-/* 저장 버튼 (파란색) */
 .save-btn {
     background-color: #007bff;
     color: white;
-    padding: 10px 25px;
+    padding: 12px 25px;
     border: none;
     border-radius: 6px;
     cursor: pointer;
@@ -173,11 +202,10 @@
     background-color: #0056b3;
 }
 
-/* 업무 삭제 버튼 (빨간색) */
 .delete-btn {
     background-color: #dc3545;
     color: white;
-    padding: 10px 20px;
+    padding: 12px 25px;
     border: none;
     border-radius: 6px;
     cursor: pointer;
