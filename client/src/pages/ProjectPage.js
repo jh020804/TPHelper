@@ -190,14 +190,29 @@ function ProjectPage() {
             <div className="project-footer">
                 <div className="footer-left">
                     <h3>참여 멤버 ({projectData.members.length})</h3>
-                    <div className="member-avatars">
+                    <div className="member-list-container">
                         {projectData.members.map(member => (
-                            <div key={member.id} className="footer-member" title={member.name}>{member.name[0]}</div>
+                            <div key={member.id} className="member-chip">
+                                {/* 프로필 이미지 또는 이니셜 */}
+                                {member.profile_image ? (
+                                    <img 
+                                        src={`${API_URL}/${member.profile_image}`} 
+                                        alt={member.name} 
+                                        className="member-chip-img"
+                                    />
+                                ) : (
+                                    <div className="member-chip-placeholder">
+                                        {member.name[0]}
+                                    </div>
+                                )}
+                                {/* 이름 표시 */}
+                                <span className="member-chip-name">{member.name}</span>
+                            </div>
                         ))}
                     </div>
                 </div>
                 
-                {/* 상세 페이지에서 직접 초대하는 입력창 */}
+                {/* 상세 페이지에서 직접 초대하는 입력창 (기존 유지) */}
                 <div className="footer-invite">
                     <input 
                         type="email" 

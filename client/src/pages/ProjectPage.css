@@ -147,7 +147,7 @@
     margin-bottom: 8px; /* 메타 정보와 간격 주기 */
 }
 
-/* 🚨 담당자/마감일 컨테이너 */
+/* 담당자/마감일 컨테이너 */
 .task-meta {
     display: flex;
     justify-content: space-between; /* 양 끝 정렬 */
@@ -157,13 +157,13 @@
     color: #666;
 }
 
-/* 🚨 담당자 스타일 */
+/* 담당자 스타일 */
 .task-assignee {
     color: #007bff; /* 파란색 강조 */
     font-weight: 600;
 }
 
-/* 🚨 마감일 스타일 */
+/* 마감일 스타일 */
 .task-date {
     background-color: #f0f0f0;
     padding: 3px 6px;
@@ -179,44 +179,79 @@
     padding-top: 15px;
     border-top: 1px solid #eee;
     display: flex;
-    justify-content: space-between; /* 양 끝 정렬 */
-    align-items: center;
+    justify-content: space-between;
+    align-items: flex-start; /* 새 디자인에 맞춰 정렬 변경 */
 }
 
 .footer-left {
     display: flex;
     flex-direction: column;
-    gap: 5px;
+    gap: 10px; /* 멤버 목록과 타이틀 간격 조정 */
 }
 
 .project-footer h3 {
-    font-size: 0.9rem;
-    color: #888;
-    margin-bottom: 10px;
+    font-size: 0.95rem; /* 사이즈 약간 키움 */
+    color: #333; /* 색상 진하게 */
+    margin-bottom: 0; /* 새로운 레이아웃에 맞춰 조정 */
 }
 
-.member-avatars {
+.member-list-container {
     display: flex;
-    gap: 8px;
+    flex-wrap: wrap;
+    gap: 10px;
 }
 
-.footer-member {
+/* 🚨 멤버 카드 (칩 스타일 - ProjectPage.js에서 사용) */
+.member-chip {
+    display: flex;
+    align-items: center;
+    background-color: #f8f9fa;
+    border: 1px solid #e9ecef;
+    padding: 5px 10px 5px 5px; 
+    border-radius: 20px;
+    gap: 8px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+}
+
+/* 🚨 프로필 이미지 */
+.member-chip-img {
     width: 30px;
     height: 30px;
-    background-color: #ddd;
     border-radius: 50%;
+    object-fit: cover;
+    border: 1px solid #ddd;
+}
+
+/* 🚨 이미지가 없을 때 이니셜 원형 */
+.member-chip-placeholder {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background-color: #007bff;
+    color: white;
     display: flex;
     justify-content: center;
     align-items: center;
     font-size: 0.8rem;
     font-weight: bold;
-    color: #555;
 }
 
+/* 🚨 이름 텍스트 */
+.member-chip-name {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #333;
+}
+
+/* (주의: 기존 footer-member, member-avatars 관련 CSS는 삭제됨) */
+
+
+/* 초대 영역 스타일 */
 .footer-invite {
     display: flex;
     gap: 8px;
     align-items: center;
+    margin-top: 5px; /* 푸터 헤더와 높이 맞추기 위해 조정 */
 }
 
 .invite-input-small {
@@ -236,6 +271,7 @@
     cursor: pointer;
     font-weight: bold;
     font-size: 0.9rem;
+    transition: background 0.2s;
 }
 .invite-btn-small:hover {
     background-color: #218838;
