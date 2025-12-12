@@ -14,8 +14,8 @@ function TaskModal({ task, members, onClose, onUpdate }) {
     const [files, setFiles] = useState([]);
     const token = localStorage.getItem('token');
 
-    // 🚨 중요: 모달이 열리거나 task가 바뀔 때 State를 props와 동기화
-    // 이 부분이 없으면 다른 카드를 눌러도 이전 데이터가 보이거나, 입력 중 사라지는 문제가 발생할 수 있습니다.
+    // 🚨 중요: task ID가 바뀔 때마다 State를 새로 받은 데이터로 초기화
+    // 이 코드가 없으면 다른 업무를 클릭해도 이전 업무의 제목이 남아있거나 비어있을 수 있습니다.
     useEffect(() => {
         setTitle(task.title || '');
         setContent(task.content || '');
@@ -25,7 +25,7 @@ function TaskModal({ task, members, onClose, onUpdate }) {
         
         fetchFiles();
         // eslint-disable-next-line
-    }, [task.id]); // task.id가 바뀔 때만 실행
+    }, [task.id]); 
 
     const fetchFiles = async () => {
         try {
@@ -38,15 +38,15 @@ function TaskModal({ task, members, onClose, onUpdate }) {
         }
     };
 
-const handleSave = async () => {
+    const handleSave = async () => {
         if (!title.trim()) return alert("제목을 입력해주세요.");
 
         try {
-            // 🚨 확인: title, content, status, due_date, assignee_id 모두 전송
+            // 🚨 저장 시 title을 포함한 모든 필드를 전송
             await axios.patch(`${API_URL}/api/tasks/${task.id}`, 
                 { 
-                    title, // 🚨 수정된 제목 전송 확인
-                    content, 
+                    title,      // 제목
+                    content,    // 상세 내용
                     status, 
                     due_date: dueDate, 
                     assignee_id: assigneeId 
@@ -54,8 +54,8 @@ const handleSave = async () => {
                 { headers: { Authorization: `Bearer ${token}` } }
             );
             alert('저장되었습니다.');
-            onUpdate();
-            onClose();
+            onUpdate(); // 부모 컴포넌트(ProjectPage) 데이터 갱신
+            onClose();  // 모달 닫기
         } catch (error) {
             console.error(error);
             alert('저장 실패');

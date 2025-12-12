@@ -22,7 +22,7 @@ function ProjectPage() {
     const { setHeaderTitle, setMembers, setCurrentProjectId } = useOutletContext();
 
     const [projectData, setProjectData] = useState(null);
-    // 🚨 변수명 의미 명확화: newTask -> newTaskTitle
+    // 🚨 변수명 명확화: newTask -> newTaskTitle (제목 입력용)
     const [newTaskTitle, setNewTaskTitle] = useState('');
     const [loading, setLoading] = useState(true);
 
@@ -59,11 +59,11 @@ function ProjectPage() {
     const addTask = async () => {
         if (!newTaskTitle.trim()) return;
         try {
-            // 🚨 수정: content가 아니라 title로 전송
+            // 🚨 수정: 할 일 추가 시 content가 아니라 title에 값을 넣어서 전송
             await axios.post(`${API_URL}/api/projects/${projectId}/tasks`, 
                 { 
                     title: newTaskTitle, // 제목으로 저장
-                    content: '',         // 내용은 비워둠 (상세에서 입력)
+                    content: '',         // 내용은 비워둠 (상세 모달에서 입력)
                     status: 'To Do' 
                 },
                 { headers: { Authorization: `Bearer ${token}` } }
@@ -75,14 +75,14 @@ function ProjectPage() {
         }
     };
 
-const onDragEnd = async (result) => {
+    const onDragEnd = async (result) => {
         const { destination, source, draggableId } = result;
         if (!destination) return;
         if (destination.droppableId === source.droppableId && destination.index === source.index) return;
 
         const newStatus = destination.droppableId;
         
-        // 낙관적 업데이트 (Optimistic Update)
+        // 1. UI 낙관적 업데이트 (즉시 반영)
         const updatedTasks = projectData.tasks.map(task => 
             task.id.toString() === draggableId ? { ...task, status: newStatus } : task
         );
@@ -90,26 +90,24 @@ const onDragEnd = async (result) => {
 
         try {
             // 🚨🚨 [핵심 수정] 🚨🚨
-            // 서버에 업데이트 요청을 보낼 때, task 객체의 기존 값(제목 포함)을 가져와 
-            // 변경된 상태(newStatus)만 덮어쓰고 전체를 전송해야 합니다.
+            // 드래그 앤 드롭 시 제목이 사라지지 않도록 기존 정보를 가져옵니다.
             const taskToUpdate = projectData.tasks.find(t => t.id.toString() === draggableId);
             
-            // 만약 taskToUpdate가 없다면 오류 방지
             if (!taskToUpdate) return;
             
+            // 서버에 전송할 때, 기존 데이터(...taskToUpdate)를 풀어서 제목을 유지하고
+            // 변경된 상태(status)만 덮어씁니다.
             await axios.patch(`${API_URL}/api/tasks/${draggableId}`, 
                 { 
-                    ...taskToUpdate, // 기존 task 정보 (제목, 내용, 담당자 등) 유지
-                    status: newStatus // 상태만 변경하여 전송
+                    ...taskToUpdate, 
+                    status: newStatus 
                 }, 
                 { headers: { Authorization: `Bearer ${token}` } }
             );
             
-            // D&D 성공 후, 전체 데이터를 다시 불러오지 않고 UI 상태만 유지
-            // fetchProjectDetails(); // 필요하다면 주석 해제하여 확실히 동기화
-            
         } catch (error) {
-            // 실패 시 원래 데이터로 되돌리기
+            console.error("드래그 앤 드롭 업데이트 실패", error);
+            // 실패 시 서버 데이터로 원복
             fetchProjectDetails();
         }
     };
@@ -138,7 +136,7 @@ const onDragEnd = async (result) => {
                     className="task-input"
                     value={newTaskTitle} 
                     onChange={(e) => setNewTaskTitle(e.target.value)} 
-                    placeholder="할 일 제목을 입력하세요" // 🚨 플레이스홀더 변경
+                    placeholder="할 일 제목을 입력하세요"
                     onKeyPress={(e) => e.key === 'Enter' && addTask()}
                 />
                 <button onClick={addTask} className="add-task-btn">추가</button>
@@ -170,13 +168,13 @@ const onDragEnd = async (result) => {
                                                             {...provided.dragHandleProps}
                                                             onClick={() => handleTaskClick(task)}
                                                         >
-                                                            {/* 🚨 수정: content 대신 title 표시 */}
+                                                            {/* 🚨 수정: 카드에 content 대신 title 표시 */}
                                                             <div className="task-content" style={{ fontWeight: 'bold' }}>
                                                                 {task.title}
                                                             </div>
                                                             
                                                             <div className="task-meta">
-                                                                {/* 내용이 있으면 아이콘 표시 (선택사항) */}
+                                                                {/* 내용이 있으면 아이콘 표시 */}
                                                                 {task.content && <span style={{ marginRight: '5px' }}>📝</span>}
                                                                 {task.assignee_name && <span className="task-assignee">👤 {task.assignee_name}</span>}
                                                                 {task.due_date && <span className="task-date">📅 {task.due_date.split('T')[0]}</span>}
