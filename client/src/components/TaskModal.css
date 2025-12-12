@@ -77,6 +77,7 @@
     flex: 1;
 }
 
+/* --- 첨부 파일 영역 --- */
 .file-section {
     margin-top: 20px;
     border-top: 1px solid #eee;
@@ -96,22 +97,55 @@
     margin-bottom: 10px;
 }
 
-.file-list li {
-    padding: 5px 0;
-    font-size: 0.9rem;
+/* 🚨 파일 리스트 아이템 수정: Flexbox로 배치 */
+.file-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
     border-bottom: 1px solid #f8f9fa;
+    font-size: 0.9rem;
 }
 
+/* 파일명 링크 스타일 (너무 길면 잘리게 처리) */
 .file-list a {
     color: #007bff;
     text-decoration: none;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 85%; /* 버튼 공간 확보 */
+    display: block;
 }
 .file-list a:hover {
     text-decoration: underline;
 }
 
+/* 🚨 파일 삭제 버튼 (작은 빨간색 X) */
+.file-delete-btn {
+    background: none;
+    border: none;
+    color: #ff6b6b;
+    font-weight: bold;
+    font-size: 1.2rem;
+    cursor: pointer;
+    padding: 0 5px;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+}
+
+.file-delete-btn:hover {
+    color: #c82333;
+    background-color: #ffe3e3;
+    border-radius: 4px;
+}
+
 .file-input {
     font-size: 0.9rem;
+    margin-top: 5px;
 }
 
 /* --- 하단 버튼 영역 --- */
@@ -139,7 +173,7 @@
     background-color: #0056b3;
 }
 
-/* 삭제 버튼 (빨간색) */
+/* 업무 삭제 버튼 (빨간색) */
 .delete-btn {
     background-color: #dc3545;
     color: white;
