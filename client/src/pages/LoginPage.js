@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import './LoginPage.css';
 
+// 🚨 API URL을 환경변수에서 가져오되, 없으면 기본값(localhost) 사용
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001';
 
 function LoginPage() {
@@ -12,9 +13,10 @@ function LoginPage() {
 
     const onSubmit = async (e) => {
         e.preventDefault();
-        console.log("로그인 시도...");
+        console.log("로그인 시도 중...");
 
         try {
+            // 🚨 환경 변수 API_URL 사용
             const response = await axios.post(`${API_URL}/api/users/login`, { email, password });
             console.log('서버 응답:', response.data);
 
@@ -22,25 +24,27 @@ function LoginPage() {
                 // 1. 토큰 저장 (필수)
                 localStorage.setItem('token', response.data.token);
 
-                // 2. 유저 정보 저장 (안전하게 처리: user 정보가 있을 때만 저장)
-                // 🚨 여기서 에러가 났던 것입니다. if문으로 감싸서 해결!
+                // 2. 유저 정보 저장 (안전하게 처리)
+                // 서버가 user 정보를 주면 저장하고, 안 주면 경고만 띄우고 넘어갑니다.
                 if (response.data.user) {
                     localStorage.setItem('userId', response.data.user.id);
                     localStorage.setItem('userName', response.data.user.name);
                 } else {
-                    console.log('주의: 서버 응답에 유저 상세 정보가 없습니다. (토큰만 저장됨)');
+                    console.warn('주의: 서버 응답에 유저 상세 정보가 없습니다. (토큰만 저장됨)');
                 }
                 
                 // 3. 대시보드로 이동
                 alert('로그인 성공!');
                 navigate('/dashboard');
             } else {
-                alert('로그인 실패: 토큰이 없습니다.');
+                alert('로그인 실패: 서버로부터 토큰을 받지 못했습니다.');
             }
 
         } catch (error) {
             console.error('로그인 에러:', error);
-            alert('로그인 에러: ' + (error.response?.data?.message || '알 수 없는 오류'));
+            // 에러 메시지를 좀 더 구체적으로 보여줍니다.
+            const errorMessage = error.response?.data?.message || '로그인 중 알 수 없는 오류가 발생했습니다.';
+            alert(`로그인 에러: ${errorMessage}`);
         }
     };
 
