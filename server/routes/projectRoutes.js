@@ -34,8 +34,13 @@ router.get('/', authMiddleware, async (req, res) => {
         );
         res.json({ projects: rows });
     } catch (error) {
-        console.error('Projects List Error:', error);
-        res.status(500).json({ message: '서버 에러', error: error.message });
+        console.error('============ [DB ERROR ON PROJECT DETAIL] ============');
+        console.error(error); // 서버 로그에 실제 SQL 에러 메시지를 출력
+        console.error('======================================================');
+        res.status(500).json({ 
+            message: '상세 정보 로드 실패 (서버 로그 확인 필요)', 
+            error: error.message // 프론트엔드에도 에러 메시지를 전달 (선택 사항)
+        });
     } finally {
         if (connection) await connection.end();
     }
