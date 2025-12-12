@@ -75,25 +75,41 @@ function ProjectPage() {
         }
     };
 
-    const onDragEnd = async (result) => {
+const onDragEnd = async (result) => {
         const { destination, source, draggableId } = result;
         if (!destination) return;
         if (destination.droppableId === source.droppableId && destination.index === source.index) return;
 
         const newStatus = destination.droppableId;
         
+        // 낙관적 업데이트 (Optimistic Update)
         const updatedTasks = projectData.tasks.map(task => 
             task.id.toString() === draggableId ? { ...task, status: newStatus } : task
         );
         setProjectData(prev => ({ ...prev, tasks: updatedTasks }));
 
         try {
-            const task = projectData.tasks.find(t => t.id.toString() === draggableId);
+            // 🚨🚨 [핵심 수정] 🚨🚨
+            // 서버에 업데이트 요청을 보낼 때, task 객체의 기존 값(제목 포함)을 가져와 
+            // 변경된 상태(newStatus)만 덮어쓰고 전체를 전송해야 합니다.
+            const taskToUpdate = projectData.tasks.find(t => t.id.toString() === draggableId);
+            
+            // 만약 taskToUpdate가 없다면 오류 방지
+            if (!taskToUpdate) return;
+            
             await axios.patch(`${API_URL}/api/tasks/${draggableId}`, 
-                { ...task, status: newStatus }, 
+                { 
+                    ...taskToUpdate, // 기존 task 정보 (제목, 내용, 담당자 등) 유지
+                    status: newStatus // 상태만 변경하여 전송
+                }, 
                 { headers: { Authorization: `Bearer ${token}` } }
             );
+            
+            // D&D 성공 후, 전체 데이터를 다시 불러오지 않고 UI 상태만 유지
+            // fetchProjectDetails(); // 필요하다면 주석 해제하여 확실히 동기화
+            
         } catch (error) {
+            // 실패 시 원래 데이터로 되돌리기
             fetchProjectDetails();
         }
     };
