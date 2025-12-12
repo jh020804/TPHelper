@@ -38,12 +38,19 @@ function TaskModal({ task, members, onClose, onUpdate }) {
         }
     };
 
-    const handleSave = async () => {
+const handleSave = async () => {
         if (!title.trim()) return alert("제목을 입력해주세요.");
 
         try {
+            // 🚨 확인: title, content, status, due_date, assignee_id 모두 전송
             await axios.patch(`${API_URL}/api/tasks/${task.id}`, 
-                { title, content, status, due_date: dueDate, assignee_id: assigneeId },
+                { 
+                    title, // 🚨 수정된 제목 전송 확인
+                    content, 
+                    status, 
+                    due_date: dueDate, 
+                    assignee_id: assigneeId 
+                },
                 { headers: { Authorization: `Bearer ${token}` } }
             );
             alert('저장되었습니다.');
