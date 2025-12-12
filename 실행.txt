@@ -11,4 +11,8 @@ const dbConfig = {
 https://tp-helper-uk9r.vercel.app/login
 
 TiDB password
-diyzo11YYhOskCDW
+izU8Sj4bCE57AFnW
+
+git add .
+git commit -m "Refactor full code for production environment"
+git push
