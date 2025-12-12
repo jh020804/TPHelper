@@ -6,20 +6,19 @@ import './MainLayout.css';
 import SidebarChatList from './SidebarChatList';
 import { FaBars, FaUsers, FaTimes, FaChevronDown, FaSignOutAlt, FaCamera } from 'react-icons/fa';
 
-// 🚨 핵심 수정: 서버의 ROOT URL을 환경 변수 또는 직접 배포 주소로 설정
-// 서버 배포 주소를 직접 지정하거나, 환경 변수를 사용해야 합니다.
-// 서버는 API_URL의 도메인과 동일해야 하므로, API_URL을 기준으로 소켓 URL을 만듭니다.
+// 🚨 API URL과 SOCKET URL 설정
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001';
-const SOCKET_URL = API_URL.replace('/api', ''); // API 경로를 제외한 루트 도메인
+const SOCKET_URL = API_URL.replace('/api', '');
 
 function MainLayout() {
     const navigate = useNavigate();
     const location = useLocation();
     
+    // 현재 채팅 페이지인지 확인
     const isChatPage = location.pathname.startsWith('/chat');
     
     const [socket, setSocket] = useState(null);
-    const [notifications, setNotifications] = useState({});
+    const [notifications, setNotifications] = useState({}); // 🚨 알림 상태 (채팅방 ID별)
     
     const [myUser, setMyUser] = useState({ name: '', profile_image: null });
     
@@ -35,15 +34,16 @@ function MainLayout() {
 
     const fileInputRef = useRef(null);
 
+    // 오른쪽 사이드바는 프로젝트 상세 혹은 채팅방에서만 표시
     const showRightSidebar = currentProjectId || isChatPage;
 
+    // 1. 초기화: 로그인 체크, 프로필 로드, 소켓 연결
     useEffect(() => {
         const token = localStorage.getItem('token');
         if (!token) { navigate('/login'); return; }
 
         const fetchProfile = async () => {
             try {
-                // 🚨 수정: API URL에 환경 변수 사용
                 const response = await axios.get(`${API_URL}/api/users/profile`, {
                     headers: { Authorization: `Bearer ${token}` }
                 });
@@ -54,68 +54,90 @@ function MainLayout() {
         };
         fetchProfile();
 
-        // 🚨 핵심 수정: Socket.io 연결 주소에 SOCKET_URL 사용
         const newSocket = io(SOCKET_URL, {
-            // CORS 및 연결 문제를 방지하기 위해 트랜스포트 설정 권장
             transports: ['websocket', 'polling']
         });
         setSocket(newSocket);
 
         return () => newSocket.disconnect();
-    }, []); // 의존성 배열 비워 초기 1회 실행 보장
+    }, []);
 
+    // 2. 실시간 메시지 수신 및 알림 처리
     useEffect(() => {
         if (!socket) return;
+        
         const handleReceiveMessage = (data) => {
-            const currentPathId = location.pathname.split('/chat/')[1];
-            if (currentPathId !== String(data.projectId)) {
+            // 현재 내가 보고 있는 채팅방 ID (없으면 null)
+            const currentPathId = location.pathname.startsWith('/chat/') 
+                ? location.pathname.split('/chat/')[1] 
+                : null;
+            
+            // 메시지가 도착한 방 ID
+            const msgProjectId = String(data.projectId || data.project_id);
+
+            // "내가 지금 그 방을 보고 있지 않다면" -> 알림 추가!
+            if (currentPathId !== msgProjectId) {
                 setNotifications(prev => {
-                    const currentNotif = prev[data.projectId] || { count: 0, hasNew: false };
-                    const isMentioned = data.message.includes(`@${myUser.name}`);
-                    const newCount = isMentioned ? currentNotif.count + 1 : currentNotif.count;
-                    return { ...prev, [data.projectId]: { hasNew: true, count: newCount } };
+                    const currentNotif = prev[msgProjectId] || { count: 0, hasNew: false };
+                    return { 
+                        ...prev, 
+                        [msgProjectId]: { hasNew: true, count: currentNotif.count + 1 } 
+                    };
                 });
             }
         };
+
         socket.on('receiveMessage', handleReceiveMessage);
         return () => { socket.off('receiveMessage', handleReceiveMessage); };
-    }, [socket, location.pathname, myUser.name]);
+    }, [socket, location.pathname]);
 
+    // 3. 페이지 이동 시 상태 관리 (알림 끄기 등)
     useEffect(() => {
         setIsLeftSidebarOpen(false);
         setIsRightSidebarOpen(false);
+
+        // 채팅방에 들어왔으면 그 방의 알림 끄기
         if (location.pathname.startsWith('/chat/')) {
             const projectId = location.pathname.split('/chat/')[1];
-            setNotifications(prev => ({ ...prev, [projectId]: { count: 0, hasNew: false } }));
+            setNotifications(prev => ({ 
+                ...prev, 
+                [projectId]: { count: 0, hasNew: false } // 알림 초기화
+            }));
+            
+            // 해당 방 소켓 룸 입장
             if(socket) socket.emit('joinRoom', projectId);
         }
+
+        // 대시보드면 헤더 초기화
         if (location.pathname === '/dashboard') {
             setCurrentProjectId(null);
             setHeaderTitle('대시보드');
         }
     }, [location.pathname, socket]);
 
+    // 로그아웃
     const handleLogout = () => {
         localStorage.removeItem('token');
         if(socket) socket.disconnect();
         navigate('/login');
     };
 
+    // 팀원 초대
     const handleInviteSubmit = async (e) => {
         e.preventDefault();
         if (!inviteEmail.trim() || !currentProjectId) return;
         const token = localStorage.getItem('token');
         setInviteError('');
         try {
-            // 🚨 수정: API URL에 환경 변수 사용
             await axios.post(`${API_URL}/api/projects/${currentProjectId}/invite`, { email: inviteEmail }, { headers: { Authorization: `Bearer ${token}` } });
-            // 🚨 수정: API URL에 환경 변수 사용
             const response = await axios.get(`${API_URL}/api/projects/${currentProjectId}`, { headers: { Authorization: `Bearer ${token}` } });
             setMembers(response.data.details.members);
             setInviteEmail(''); 
+            alert('초대장을 보냈습니다.');
         } catch (err) { setInviteError('초대 실패'); }
     };
 
+    // 프로필 이미지 업로드
     const handleImageUpload = async (e) => {
         const file = e.target.files[0];
         if (!file) return;
@@ -125,7 +147,6 @@ function MainLayout() {
 
         try {
             const token = localStorage.getItem('token');
-            // 🚨 수정: API URL에 환경 변수 사용
             const response = await axios.post(`${API_URL}/api/users/profile-image`, formData, {
                 headers: { 
                     'Content-Type': 'multipart/form-data',
@@ -157,7 +178,6 @@ function MainLayout() {
                         <div className="profile-trigger" onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}>
                             {myUser.profile_image ? (
                                 <img 
-                                    // 🚨 수정: API URL에 환경 변수 사용 (이미지 경로)
                                     src={`${API_URL}/${myUser.profile_image}`} 
                                     alt="Profile" 
                                     className="header-profile-img"
@@ -201,10 +221,18 @@ function MainLayout() {
                 <div className="sidebar-menu-container">
                     <ul className="main-nav-links">
                         <li><Link to="/dashboard">내 프로젝트</Link></li> 
-                        <li><Link to="/chat">팀 채팅</Link></li>
+                        {/* 팀 채팅 메뉴는 클릭 시 목록을 보여주는 역할만 하므로 링크 기능 제거 */}
+                        <li>
+                            <div style={{ padding: '12px 20px', color: '#666', fontWeight: 'bold', cursor: 'default' }}>
+                                팀 채팅 목록 👇
+                            </div>
+                        </li>
                     </ul>
                     <hr className="sidebar-divider" />
-                    {isChatPage ? <SidebarChatList socket={socket} notifications={notifications} /> : null}
+                    
+                    {/* 🚨 채팅 목록 컴포넌트 렌더링 (여기에 알림 상태 전달) */}
+                    <SidebarChatList socket={socket} notifications={notifications} />
+                    
                 </div>
             </nav>
 

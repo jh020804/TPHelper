@@ -1,141 +1,82 @@
-import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
+import { Link, useParams } from 'react-router-dom';
 import axios from 'axios';
-// ‼️ 드래그 앤 드롭 라이브러리 import
-import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
+import './MainLayout.css'; // CSS 스타일 공유
+
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001';
 
 function SidebarChatList({ socket, notifications }) {
-    const [projects, setProjects] = useState([]);
-    const navigate = useNavigate();
+    const [chatRooms, setChatRooms] = useState([]);
+    const { projectId: currentProjectId } = useParams(); // 현재 보고 있는 채팅방 ID
+    const token = localStorage.getItem('token');
 
+    // 채팅방 목록 불러오기
     useEffect(() => {
-        const token = localStorage.getItem('token');
-        if (!token) {
-            navigate('/login');
-            return;
-        }
-
-        const fetchProjects = async () => {
+        const fetchChatRooms = async () => {
             try {
-                const response = await axios.get('https://tphelper.onrender.com/api/projects', {
+                const res = await axios.get(`${API_URL}/api/projects`, {
                     headers: { Authorization: `Bearer ${token}` }
                 });
-                
-                // ‼️ 서버에서 가져온 프로젝트 목록
-                const fetchedProjects = response.data.projects;
-
-                // ‼️ LocalStorage에 저장된 순서 불러오기
-                const savedOrder = localStorage.getItem('projectOrder');
-                
-                if (savedOrder) {
-                    const orderArray = JSON.parse(savedOrder);
-                    // 저장된 ID 순서대로 정렬
-                    fetchedProjects.sort((a, b) => {
-                        const indexA = orderArray.indexOf(String(a.id));
-                        const indexB = orderArray.indexOf(String(b.id));
-                        // 저장된 순서에 없으면 뒤로 보냄
-                        if (indexA === -1) return 1;
-                        if (indexB === -1) return -1;
-                        return indexA - indexB;
-                    });
-                }
-
-                setProjects(fetchedProjects);
-
-                if (socket) {
-                    fetchedProjects.forEach(project => {
-                        socket.emit('joinRoom', String(project.id));
-                    });
-                }
-
+                setChatRooms(res.data.projects);
             } catch (error) {
-                console.error('프로젝트 로딩 실패:', error);
+                console.error('채팅 목록 로드 실패', error);
             }
         };
-
-        fetchProjects();
-    }, [navigate, socket]);
-
-    // ‼️ 드래그가 끝났을 때 실행되는 함수
-    const handleOnDragEnd = (result) => {
-        // 드래그가 리스트 밖에서 끝났으면 무시
-        if (!result.destination) return;
-
-        // 배열의 순서 재배치 로직
-        const items = Array.from(projects);
-        const [reorderedItem] = items.splice(result.source.index, 1);
-        items.splice(result.destination.index, 0, reorderedItem);
-
-        // 상태 업데이트 (화면 즉시 반영)
-        setProjects(items);
-
-        // ‼️ 변경된 순서(ID 배열)를 LocalStorage에 저장
-        const idOrder = items.map(item => String(item.id));
-        localStorage.setItem('projectOrder', JSON.stringify(idOrder));
-    };
+        fetchChatRooms();
+    }, [token]);
 
     return (
         <div className="sidebar-chat-list">
-            <h4>
-                <Link to="/" className="back-to-projects">← 모든 프로젝트</Link>
+            <h4 className="sidebar-subtitle" style={{ padding: '0 20px', fontSize: '0.85rem', color: '#888', marginTop: '15px' }}>
+                채팅 목록
             </h4>
-            <p>참여 중인 프로젝트</p>
-            
-            {/* ‼️ 드래그 앤 드롭 영역 시작 */}
-            <DragDropContext onDragEnd={handleOnDragEnd}>
-                <Droppable droppableId="projects">
-                    {(provided) => (
-                        <ul 
-                            {...provided.droppableProps} 
-                            ref={provided.innerRef}
-                            style={{ padding: 0, margin: 0, listStyle: 'none' }}
-                        >
-                            {projects.map((project, index) => {
-                                const notif = notifications[project.id] || { count: 0, hasNew: false };
+            <ul className="chat-nav-links" style={{ listStyle: 'none', padding: 0 }}>
+                {chatRooms.map((room) => {
+                    // 🚨 알림 상태 확인 (이 부분이 핵심!)
+                    const notif = notifications[room.id];
+                    const hasNew = notif && notif.hasNew; // 새 메시지 여부
+                    const count = notif ? notif.count : 0; // 안 읽은 메시지 수 (선택 사항)
+                    
+                    // 현재 보고 있는 방인지 확인
+                    const isActive = String(currentProjectId) === String(room.id);
+
+                    return (
+                        <li key={room.id}>
+                            <Link 
+                                to={`/chat/${room.id}`} 
+                                // 🚨 has-new-message 클래스를 조건부로 추가
+                                className={`sidebar-link ${isActive ? 'active' : ''} ${hasNew ? 'has-new-message' : ''}`}
+                                style={{ 
+                                    display: 'flex', 
+                                    justifyContent: 'space-between', 
+                                    alignItems: 'center',
+                                    padding: '10px 20px',
+                                    textDecoration: 'none',
+                                    color: isActive ? '#007bff' : '#333',
+                                    backgroundColor: isActive ? '#e6f2ff' : 'transparent',
+                                    fontWeight: (isActive || hasNew) ? 'bold' : 'normal'
+                                }}
+                            >
+                                <span className="room-name"># {room.name}</span>
                                 
-                                return (
-                                    <Draggable 
-                                        key={project.id} 
-                                        draggableId={String(project.id)} 
-                                        index={index}
-                                    >
-                                        {(provided, snapshot) => (
-                                            <li 
-                                                ref={provided.innerRef}
-                                                {...provided.draggableProps}
-                                                {...provided.dragHandleProps}
-                                                style={{
-                                                    ...provided.draggableProps.style,
-                                                    // 드래그 중일 때 약간 투명하게 효과
-                                                    opacity: snapshot.isDragging ? 0.5 : 1,
-                                                    background: snapshot.isDragging ? '#e0e0e0' : 'transparent',
-                                                    borderRadius: '4px'
-                                                }}
-                                            >
-                                                <Link 
-                                                    to={`/chat/${project.id}`}
-                                                    className={notif.hasNew ? 'has-new-message' : ''}
-                                                    // 드래그 시 링크 클릭 방지 (선택 사항)
-                                                    onClick={e => {
-                                                        if (snapshot.isDragging) e.preventDefault();
-                                                    }}
-                                                >
-                                                    {project.name}
-                                                    
-                                                    {notif.count > 0 && (
-                                                        <span className="mention-badge">{notif.count}</span>
-                                                    )}
-                                                </Link>
-                                            </li>
-                                        )}
-                                    </Draggable>
-                                );
-                            })}
-                            {provided.placeholder}
-                        </ul>
-                    )}
-                </Droppable>
-            </DragDropContext>
+                                {/* 🔴 새 메시지 뱃지 (N) */}
+                                {hasNew && !isActive && (
+                                    <span style={{ 
+                                        backgroundColor: '#ff4444', 
+                                        color: 'white', 
+                                        fontSize: '10px', 
+                                        padding: '2px 6px', 
+                                        borderRadius: '10px',
+                                        marginLeft: '5px'
+                                    }}>
+                                        N
+                                    </span>
+                                )}
+                            </Link>
+                        </li>
+                    );
+                })}
+            </ul>
         </div>
     );
 }

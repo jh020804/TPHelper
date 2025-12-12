@@ -81,21 +81,56 @@
 .sidebar-logo { font-size: 1.5rem; font-weight: bold; color: #007bff; text-decoration: none; }
 .sidebar-menu-container { padding: 20px; overflow-y: auto; flex-grow: 1; }
 
-.main-nav-links { list-style: none; padding: 0; margin: 0; }
-.main-nav-links li a {
-    display: block; padding: 12px 10px; color: #333; text-decoration: none; border-radius: 4px; font-size: 1rem; transition: all 0.2s; position: relative;
+.main-nav-links, .chat-nav-links { list-style: none; padding: 0; margin: 0; }
+
+/* 사이드바 링크 공통 스타일 */
+.main-nav-links li a, .chat-nav-links li a {
+    display: flex; /* flex로 변경하여 내부 요소 정렬 */
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 15px; 
+    color: #333; 
+    text-decoration: none; 
+    border-radius: 4px; 
+    font-size: 1rem; 
+    transition: all 0.2s; 
+    position: relative;
+    margin-bottom: 2px;
 }
-.main-nav-links li a:hover { background-color: #e9ecef; color: #007bff; }
+
+.main-nav-links li a:hover, .chat-nav-links li a:hover { 
+    background-color: #e9ecef; 
+    color: #007bff; 
+}
+
+/* 활성화된 링크 스타일 (active) */
+.sidebar-link.active {
+    background-color: #e6f2ff;
+    color: #007bff !important;
+    font-weight: bold;
+}
+
 .sidebar-divider { border: 0; border-top: 1px solid #ddd; margin: 15px 0; }
 
-/* 알림 스타일 */
-.has-new-message { font-weight: bold; color: #000 !important; background-color: rgba(0, 0, 0, 0.05); }
-.has-new-message::before {
-    content: ''; position: absolute; left: 8px; top: 50%; transform: translateY(-50%); width: 4px; height: 8px; background-color: #333; border-radius: 4px; transition: height 0.2s;
+/* --- 🚨 알림 스타일 (수정됨) --- */
+/* 새 메시지가 있을 때 강조 (빨간색 테마) */
+.sidebar-link.has-new-message {
+    background-color: #fff0f0 !important; /* 연한 빨간 배경 */
+    color: #d32f2f !important; /* 진한 빨간 글씨 */
+    font-weight: 700;
 }
-.has-new-message:hover::before { height: 20px; }
-.mention-badge {
-    background-color: #ff4444; color: white; border-radius: 50%; padding: 2px 6px; font-size: 0.75rem; font-weight: bold; float: right; margin-left: 8px; vertical-align: middle;
+
+/* 왼쪽 빨간 막대 표시 */
+.sidebar-link.has-new-message::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 4px;
+    height: 60%;
+    background-color: #d32f2f;
+    border-radius: 0 4px 4px 0;
 }
 
 /* --- 콘텐츠 영역 --- */
@@ -113,7 +148,6 @@
     border-left: 1px solid #ddd;
     padding: 20px;
     overflow-y: auto;
-    /* 기본적으로는 안 보이다가, grid layout이 3단으로 변할 때 보임 */
 }
 
 .app-aside h4 { margin-top: 0; border-bottom: 1px solid #ddd; padding-bottom: 10px; }
