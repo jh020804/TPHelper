@@ -54,7 +54,7 @@ router.get('/:projectId', authMiddleware, async (req, res) => {
         const { projectId } = req.params;
         connection = await mysql.createConnection(dbConfig);
         
-        // 권한 확인 (active 상태인 멤버만 접근 가능)
+        // (권한 확인 로직 생략 - 기존 유지)
         const [members] = await connection.execute(
             'SELECT * FROM project_members WHERE project_id=? AND user_id=? AND status="active"', 
             [projectId, req.user.userId]
@@ -63,8 +63,15 @@ router.get('/:projectId', authMiddleware, async (req, res) => {
 
         const [project] = await connection.execute('SELECT * FROM projects WHERE id=?', [projectId]);
         const [tasks] = await connection.execute('SELECT t.*, u.name as assignee_name FROM tasks t LEFT JOIN users u ON t.assignee_id = u.id WHERE t.project_id = ?', [projectId]);
-        // 멤버 목록은 active인 사람만 보여줌
-        const [teamMembers] = await connection.execute('SELECT u.id, u.name, u.email FROM project_members pm JOIN users u ON pm.user_id = u.id WHERE pm.project_id = ? AND pm.status = "active"', [projectId]);
+        
+        // 🚨 여기가 수정된 부분입니다! (u.profile_image 추가)
+        const [teamMembers] = await connection.execute(
+            `SELECT u.id, u.name, u.email, u.profile_image 
+             FROM project_members pm 
+             JOIN users u ON pm.user_id = u.id 
+             WHERE pm.project_id = ? AND pm.status = "active"`,
+            [projectId]
+        );
 
         res.json({ details: { project: project[0], tasks: tasks, members: teamMembers } });
     } catch (error) {
