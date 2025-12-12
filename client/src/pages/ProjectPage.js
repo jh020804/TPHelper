@@ -18,7 +18,7 @@ function ProjectPage() {
     const navigate = useNavigate();
     const token = localStorage.getItem('token');
     
-    // 🚨 1. MainLayout과 소통하기 위한 Context 가져오기
+    // MainLayout과 소통하기 위한 Context (오른쪽 사이드바 제어용)
     const { setHeaderTitle, setMembers, setCurrentProjectId } = useOutletContext();
 
     const [projectData, setProjectData] = useState(null);
@@ -28,9 +28,6 @@ function ProjectPage() {
     // 모달 관련 상태
     const [selectedTask, setSelectedTask] = useState(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
-
-    // 🚨 2. 초대 기능용 상태 추가
-    const [inviteEmail, setInviteEmail] = useState('');
 
     useEffect(() => {
         fetchProjectDetails();
@@ -45,8 +42,7 @@ function ProjectPage() {
             const data = res.data.details;
             setProjectData(data);
             
-            // 🚨 3. 레이아웃(오른쪽 사이드바)에 현재 프로젝트 정보 전달
-            // 이걸 해야 오른쪽 사이드바가 나오고 거기서도 초대가 됩니다.
+            // 🚨 MainLayout(오른쪽 사이드바)에 정보 전달 (중요!)
             setHeaderTitle(data.project.name);
             setMembers(data.members);
             setCurrentProjectId(projectId);
@@ -98,22 +94,6 @@ function ProjectPage() {
     const handleTaskClick = (task) => {
         setSelectedTask(task);
         setIsModalOpen(true);
-    };
-
-    // 🚨 4. 팀원 초대 함수
-    const handleInvite = async () => {
-        if (!inviteEmail.trim()) return;
-        try {
-            await axios.post(`${API_URL}/api/projects/${projectId}/invite`, 
-                { email: inviteEmail }, 
-                { headers: { Authorization: `Bearer ${token}` } }
-            );
-            alert('초대가 완료되었습니다.');
-            setInviteEmail('');
-            fetchProjectDetails(); // 멤버 목록 갱신
-        } catch (error) {
-            alert('초대 실패: 이메일을 확인하거나 이미 멤버인지 확인하세요.');
-        }
     };
 
     if (loading) return <div className="loading">로딩 중...</div>;
@@ -186,44 +166,7 @@ function ProjectPage() {
                 </div>
             </DragDropContext>
 
-            {/* 🚨 5. 하단 멤버 섹션 + 초대 입력창 */}
-            <div className="project-footer">
-                <div className="footer-left">
-                    <h3>참여 멤버 ({projectData.members.length})</h3>
-                    <div className="member-list-container">
-                        {projectData.members.map(member => (
-                            <div key={member.id} className="member-chip">
-                                {/* 프로필 이미지 또는 이니셜 */}
-                                {member.profile_image ? (
-                                    <img 
-                                        src={`${API_URL}/${member.profile_image}`} 
-                                        alt={member.name} 
-                                        className="member-chip-img"
-                                    />
-                                ) : (
-                                    <div className="member-chip-placeholder">
-                                        {member.name[0]}
-                                    </div>
-                                )}
-                                {/* 이름 표시 */}
-                                <span className="member-chip-name">{member.name}</span>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-                
-                {/* 상세 페이지에서 직접 초대하는 입력창 (기존 유지) */}
-                <div className="footer-invite">
-                    <input 
-                        type="email" 
-                        placeholder="이메일로 팀원 초대" 
-                        value={inviteEmail}
-                        onChange={(e) => setInviteEmail(e.target.value)}
-                        className="invite-input-small"
-                    />
-                    <button onClick={handleInvite} className="invite-btn-small">초대</button>
-                </div>
-            </div>
+            {/* 🗑️ 하단 멤버/초대 섹션 제거됨 */}
 
             {isModalOpen && selectedTask && (
                 <TaskModal 
