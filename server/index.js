@@ -2,11 +2,11 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
-const http = require('http'); // 소켓용
-const { Server } = require("socket.io"); // 소켓용
+const http = require('http');
+const { Server } = require("socket.io");
 
 const app = express();
-const server = http.createServer(app); // HTTP 서버 생성
+const server = http.createServer(app);
 
 // 라우터 불러오기
 const userRoutes = require('./routes/userRoutes');
@@ -17,15 +17,15 @@ app.use(cors());
 app.use(express.json());
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// 🚨 라우터 연결 (이 부분이 정확해야 합니다!)
+// API 라우트 연결
 app.use('/api/users', userRoutes);
-app.use('/api/projects', projectRoutes); // <-- /api/projects 주소는 projectRoutes가 처리함
+app.use('/api/projects', projectRoutes);
 app.use('/api/tasks', taskRoutes);
 
-// Socket.io 설정
+// 🚨 Socket.io 설정 (실시간 통신의 핵심)
 const io = new Server(server, {
     cors: {
-        origin: "*", // 모든 곳에서 접속 허용
+        origin: "*", // 모든 도메인에서 접속 허용 (배포 시 프론트엔드 도메인으로 제한 권장)
         methods: ["GET", "POST"]
     }
 });
@@ -33,22 +33,26 @@ const io = new Server(server, {
 io.on('connection', (socket) => {
     console.log('User connected:', socket.id);
 
+    // 1. 방 입장 (Join Room)
     socket.on('joinRoom', (projectId) => {
-        socket.join(projectId);
-        console.log(`User joined project room: ${projectId}`);
+        socket.join(String(projectId)); // 숫자일 수 있으므로 문자열로 변환
+        console.log(`User ${socket.id} joined room: ${projectId}`);
     });
 
+    // 2. 메시지 전송 및 중계 (Send & Broadcast)
     socket.on('sendMessage', (data) => {
-        io.to(data.projectId).emit('receiveMessage', data);
+        console.log(`Message in room ${data.projectId}:`, data.content);
+        
+        // 중요: 해당 방(projectId)에 있는 *모든* 사람에게 메시지 전송
+        io.to(String(data.projectId)).emit('receiveMessage', data);
     });
 
     socket.on('disconnect', () => {
-        console.log('User disconnected');
+        console.log('User disconnected:', socket.id);
     });
 });
 
 const PORT = process.env.PORT || 3001;
-// app.listen 대신 server.listen 사용 (소켓 때문)
 server.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
 });
