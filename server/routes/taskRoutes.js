@@ -7,7 +7,7 @@ const fs = require('fs');
 const path = require('path');
 const dbConfig = require('../config/db');
 
-// 파일 업로드 설정
+// 파일 업로드 설정 (기존과 동일)
 try {
     if (!fs.existsSync('uploads')) {
         fs.mkdirSync('uploads');
@@ -27,19 +27,16 @@ router.patch('/:taskId', authMiddleware, async (req, res) => {
     let connection;
     try {
         const { taskId } = req.params;
-        // 🚨🚨 [핵심 수정 1] req.body에서 title을 받도록 추가
         const { title, content, status, due_date, assignee_id } = req.body;
 
-        // 동적 쿼리 생성 (업데이트할 필드만 처리)
         const updates = [];
         const params = [];
 
-        // 🚨🚨 [핵심 수정 2] title 업데이트 로직 추가
+        // --- 업데이트 필드 준비 ---
         if (title !== undefined) { 
             updates.push('title = ?'); 
             params.push(title); 
         }
-        
         if (content !== undefined) { 
             updates.push('content = ?'); 
             params.push(content); 
@@ -48,7 +45,6 @@ router.patch('/:taskId', authMiddleware, async (req, res) => {
             updates.push('status = ?'); 
             params.push(status); 
         }
-        // null 값 처리를 위해 due_date와 assignee_id도 if(x !== undefined)로 처리
         if (due_date !== undefined) { 
             updates.push('due_date = ?'); 
             params.push(due_date || null); 
@@ -67,7 +63,7 @@ router.patch('/:taskId', authMiddleware, async (req, res) => {
 
         connection = await mysql.createConnection(dbConfig);
         
-        // 🚨🚨 [핵심 수정 3] SQL 쿼리 실행
+        // 1. DB 업데이트 실행
         await connection.execute(
             `UPDATE tasks 
              SET ${updates.join(', ')} 
@@ -75,14 +71,38 @@ router.patch('/:taskId', authMiddleware, async (req, res) => {
             params
         );
         
-        // 🚨 [추가] 수정 후 클라이언트에게 최신 데이터를 보내거나 소켓을 보내는 로직이 여기에 추가되면 좋습니다.
-        // (현재는 TaskModal이 onUpdate를 호출하므로 일단 메시지만 보냅니다.)
+        // 2. 수정된 데이터 조회 및 소켓 전송을 위한 준비
+        // 🚨🚨 [필수] 소켓 전송을 위해 project_id와 최신 task 데이터를 조회합니다.
+        const [ut] = await connection.execute(`
+            SELECT 
+                t.id, t.title, t.content, t.status, t.due_date, t.project_id, 
+                u.name as assignee_name 
+            FROM tasks t 
+            LEFT JOIN users u ON t.assignee_id = u.id 
+            WHERE t.id = ?
+        `, [taskId]);
+
+        await connection.end();
+
+        if (ut.length > 0) {
+            const updatedTask = ut[0];
+            const projectId = String(updatedTask.project_id);
+            
+            // 3. 소켓을 통해 변경 사항 알림
+            // req.app.get('io')를 통해 index.js에 등록된 소켓 인스턴스를 가져옵니다.
+            req.app.get('io').to(projectId).emit('taskUpdated', updatedTask);
+        }
         
         res.json({ message: '업무 업데이트 성공' });
         
     } catch (error) {
-        console.error('Task Update Error:', error);
-        // 에러 로그에 SQL 에러가 찍히도록 console.error를 유지합니다.
+        // 🚨🚨 [500 에러 포착] SQL 오류 발생 시 Render 로그에 찍힐 것입니다.
+        console.error('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!');
+        console.error('!!! Task Update 500 에러 발생 (SQL/DB 문제) !!!');
+        console.error('!!! 상세 에러:', error.message, '!!!');
+        console.error('!!! 에러 객체:', error, '!!!');
+        console.error('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!');
+        
         res.status(500).json({ message: '업무 수정 실패', error: error.message });
     } finally {
         if (connection) await connection.end();
@@ -161,9 +181,8 @@ router.delete('/files/:attachmentId', authMiddleware, async (req, res) => {
         
         if (files.length > 0) {
             const filePath = files[0].file_url;
-            // 2. 서버 디스크에서 파일 삭제 (에러나도 DB 삭제는 진행하도록 try-catch 감쌈)
+            // 2. 서버 디스크에서 파일 삭제 
             try {
-                // 주의: 배포 환경이 파일 시스템을 지원하는지 확인 필요 (Render는 임시 파일 시스템)
                 if (fs.existsSync(filePath)) {
                     fs.unlinkSync(filePath);
                 }
