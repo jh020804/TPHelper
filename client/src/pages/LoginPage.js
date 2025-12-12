@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import './LoginPage.css'; // CSS 파일 임포트
 
-// 환경변수 적용
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001';
 
 function LoginPage() {
@@ -16,23 +16,49 @@ function LoginPage() {
             const response = await axios.post(`${API_URL}/api/users/login`, { email, password });
             if (response.data.token) {
                 localStorage.setItem('token', response.data.token);
-                // alert('로그인 성공!'); // 필요하면 주석 해제
+                // 본인 확인을 위해 userId도 저장해두면 좋습니다 (채팅 등에서 사용)
+                localStorage.setItem('userId', response.data.user.id); 
+                localStorage.setItem('userName', response.data.user.name);
                 navigate('/dashboard');
             }
         } catch (error) {
-            alert('로그인 실패: 이메일이나 비밀번호를 확인하세요.');
+            alert('로그인 실패: 이메일과 비밀번호를 확인해주세요.');
         }
     };
 
     return (
-        <div style={{ padding: '50px', maxWidth: '400px', margin: '0 auto' }}>
-            <h2>로그인</h2>
-            <form onSubmit={onSubmit}>
-                <input type="email" placeholder="이메일" value={email} onChange={e => setEmail(e.target.value)} required style={{ display: 'block', width: '100%', marginBottom: '10px', padding: '10px' }} />
-                <input type="password" placeholder="비밀번호" value={password} onChange={e => setPassword(e.target.value)} required style={{ display: 'block', width: '100%', marginBottom: '20px', padding: '10px' }} />
-                <button type="submit" style={{ width: '100%', padding: '10px', background: 'blue', color: 'white', border: 'none' }}>로그인</button>
-            </form>
-            <p onClick={() => navigate('/signup')} style={{ cursor: 'pointer', color: 'blue', marginTop: '10px' }}>회원가입 하러가기</p>
+        <div className="login-container">
+            <div className="login-box">
+                <h2 className="login-title">TPHelper 로그인</h2>
+                <form className="login-form" onSubmit={onSubmit}>
+                    <div className="input-group">
+                        <label htmlFor="email">이메일</label>
+                        <input 
+                            type="email" 
+                            id="email"
+                            value={email} 
+                            onChange={(e) => setEmail(e.target.value)} 
+                            placeholder="이메일을 입력하세요"
+                            required 
+                        />
+                    </div>
+                    <div className="input-group">
+                        <label htmlFor="password">비밀번호</label>
+                        <input 
+                            type="password" 
+                            id="password"
+                            value={password} 
+                            onChange={(e) => setPassword(e.target.value)} 
+                            placeholder="비밀번호를 입력하세요"
+                            required 
+                        />
+                    </div>
+                    <button type="submit" className="login-btn">로그인</button>
+                </form>
+                <div className="signup-link">
+                    계정이 없으신가요? <span onClick={() => navigate('/signup')}>회원가입</span>
+                </div>
+            </div>
         </div>
     );
 }

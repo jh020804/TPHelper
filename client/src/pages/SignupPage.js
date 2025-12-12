@@ -1,72 +1,54 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { useNavigate, Link } from 'react-router-dom';
-import './SignupPage.css'; // 로그인 페이지와 유사한 CSS를 사용할 것입니다.
+import './SignupPage.css';
+
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001';
 
 function SignupPage() {
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [passwordConfirm, setPasswordConfirm] = useState('');
-  const [error, setError] = useState('');
-  const navigate = useNavigate();
+    const [formData, setFormData] = useState({ email: '', password: '', name: '' });
+    const navigate = useNavigate();
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (password !== passwordConfirm) {
-      setError('비밀번호가 일치하지 않습니다.');
-      return;
-    }
-    setError('');
+    const handleChange = (e) => {
+        setFormData({ ...formData, [e.target.name]: e.target.value });
+    };
 
-    try {
-      await axios.post('https://tphelper.onrender.com/api/users/signup', {
-        name,
-        email,
-        password
-      });
-      alert('회원가입 성공! 로그인 페이지로 이동합니다.');
-      navigate('/login');
-    } catch (err) {
-      if (err.response && err.response.status === 500) {
-        setError('이미 사용 중인 이메일입니다.');
-      } else {
-        setError('회원가입에 실패했습니다. 다시 시도해주세요.');
-      }
-      console.error('Signup error:', err);
-    }
-  };
+    const onSubmit = async (e) => {
+        e.preventDefault();
+        try {
+            await axios.post(`${API_URL}/api/users/signup`, formData);
+            alert('회원가입 성공! 로그인 해주세요.');
+            navigate('/login');
+        } catch (error) {
+            alert('회원가입 실패: 이미 존재하는 이메일입니다.');
+        }
+    };
 
-  return (
-    <div className="signup-page">
-      <div className="signup-container">
-        <h2>TPHelper 회원가입</h2>
-        <form className="signup-form" onSubmit={handleSubmit}>
-          <div className="input-group">
-            <label htmlFor="name">이름 (닉네임)</label>
-            <input type="text" id="name" value={name} onChange={(e) => setName(e.target.value)} required />
-          </div>
-          <div className="input-group">
-            <label htmlFor="email">이메일</label>
-            <input type="email" id="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
-          </div>
-          <div className="input-group">
-            <label htmlFor="password">비밀번호</label>
-            <input type="password" id="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
-          </div>
-          <div className="input-group">
-            <label htmlFor="passwordConfirm">비밀번호 확인</label>
-            <input type="password" id="passwordConfirm" value={passwordConfirm} onChange={(e) => setPasswordConfirm(e.target.value)} required />
-          </div>
-          {error && <p className="error-message">{error}</p>}
-          <button type="submit" className="signup-button">가입하기</button>
-        </form>
-        <p className="link-to-login">
-          이미 계정이 있으신가요? <Link to="/login">로그인하기</Link>
-        </p>
-      </div>
-    </div>
-  );
+    return (
+        <div className="signup-container">
+            <div className="signup-box">
+                <h2 className="signup-title">회원가입</h2>
+                <form className="signup-form" onSubmit={onSubmit}>
+                    <div className="input-group">
+                        <label>이름</label>
+                        <input type="text" name="name" onChange={handleChange} placeholder="이름을 입력하세요" required />
+                    </div>
+                    <div className="input-group">
+                        <label>이메일</label>
+                        <input type="email" name="email" onChange={handleChange} placeholder="이메일을 입력하세요" required />
+                    </div>
+                    <div className="input-group">
+                        <label>비밀번호</label>
+                        <input type="password" name="password" onChange={handleChange} placeholder="비밀번호를 입력하세요" required />
+                    </div>
+                    <button type="submit" className="signup-btn">가입하기</button>
+                </form>
+                <div className="login-link">
+                    이미 계정이 있으신가요? <span onClick={() => navigate('/login')}>로그인</span>
+                </div>
+            </div>
+        </div>
+    );
 }
 
 export default SignupPage;
