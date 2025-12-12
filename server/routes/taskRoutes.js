@@ -22,30 +22,74 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage });
 
-// 1. 업무 상세 정보 수정
+// 1. 업무 상세 정보 수정 (PATCH /api/tasks/:taskId)
 router.patch('/:taskId', authMiddleware, async (req, res) => {
     let connection;
     try {
         const { taskId } = req.params;
-        const { content, status, due_date, assignee_id } = req.body;
+        // 🚨🚨 [핵심 수정 1] req.body에서 title을 받도록 추가
+        const { title, content, status, due_date, assignee_id } = req.body;
+
+        // 동적 쿼리 생성 (업데이트할 필드만 처리)
+        const updates = [];
+        const params = [];
+
+        // 🚨🚨 [핵심 수정 2] title 업데이트 로직 추가
+        if (title !== undefined) { 
+            updates.push('title = ?'); 
+            params.push(title); 
+        }
+        
+        if (content !== undefined) { 
+            updates.push('content = ?'); 
+            params.push(content); 
+        }
+        if (status) { 
+            updates.push('status = ?'); 
+            params.push(status); 
+        }
+        // null 값 처리를 위해 due_date와 assignee_id도 if(x !== undefined)로 처리
+        if (due_date !== undefined) { 
+            updates.push('due_date = ?'); 
+            params.push(due_date || null); 
+        }
+        if (assignee_id !== undefined) { 
+            updates.push('assignee_id = ?'); 
+            params.push(assignee_id || null); 
+        }
+
+        if (updates.length === 0) {
+            return res.json({ message: '업데이트할 내용이 없습니다.' });
+        }
+        
+        // WHERE 절의 taskId를 params의 마지막에 추가
+        params.push(taskId);
 
         connection = await mysql.createConnection(dbConfig);
+        
+        // 🚨🚨 [핵심 수정 3] SQL 쿼리 실행
         await connection.execute(
             `UPDATE tasks 
-             SET content = ?, status = ?, due_date = ?, assignee_id = ? 
+             SET ${updates.join(', ')} 
              WHERE id = ?`,
-            [content, status, due_date || null, assignee_id || null, taskId]
+            params
         );
+        
+        // 🚨 [추가] 수정 후 클라이언트에게 최신 데이터를 보내거나 소켓을 보내는 로직이 여기에 추가되면 좋습니다.
+        // (현재는 TaskModal이 onUpdate를 호출하므로 일단 메시지만 보냅니다.)
+        
         res.json({ message: '업무 업데이트 성공' });
+        
     } catch (error) {
         console.error('Task Update Error:', error);
+        // 에러 로그에 SQL 에러가 찍히도록 console.error를 유지합니다.
         res.status(500).json({ message: '업무 수정 실패', error: error.message });
     } finally {
         if (connection) await connection.end();
     }
 });
 
-// 2. 파일 업로드
+// 2. 파일 업로드 (router.post('/:taskId/files'))
 router.post('/:taskId/files', authMiddleware, upload.single('file'), async (req, res) => {
     let connection;
     try {
@@ -70,7 +114,7 @@ router.post('/:taskId/files', authMiddleware, upload.single('file'), async (req,
     }
 });
 
-// 3. 첨부파일 목록 조회
+// 3. 첨부파일 목록 조회 (router.get('/:taskId/files'))
 router.get('/:taskId/files', authMiddleware, async (req, res) => {
     let connection;
     try {
@@ -89,7 +133,7 @@ router.get('/:taskId/files', authMiddleware, async (req, res) => {
     }
 });
 
-// 4. 업무 삭제
+// 4. 업무 삭제 (router.delete('/:taskId'))
 router.delete('/:taskId', authMiddleware, async (req, res) => {
     let connection;
     try {
@@ -105,7 +149,7 @@ router.delete('/:taskId', authMiddleware, async (req, res) => {
     }
 });
 
-// 🚨 5. 특정 첨부파일 삭제 (새로 추가됨!)
+// 5. 특정 첨부파일 삭제 (router.delete('/files/:attachmentId'))
 router.delete('/files/:attachmentId', authMiddleware, async (req, res) => {
     let connection;
     try {
@@ -119,6 +163,7 @@ router.delete('/files/:attachmentId', authMiddleware, async (req, res) => {
             const filePath = files[0].file_url;
             // 2. 서버 디스크에서 파일 삭제 (에러나도 DB 삭제는 진행하도록 try-catch 감쌈)
             try {
+                // 주의: 배포 환경이 파일 시스템을 지원하는지 확인 필요 (Render는 임시 파일 시스템)
                 if (fs.existsSync(filePath)) {
                     fs.unlinkSync(filePath);
                 }
