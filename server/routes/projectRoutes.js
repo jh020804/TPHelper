@@ -123,7 +123,7 @@ router.post('/:projectId/tasks', authMiddleware, async (req, res) => {
     }
 });
 
-// 5. 팀원 초대
+// 🚨 5. 팀원 초대 (이 부분이 없어서 404 에러가 났던 것!)
 router.post('/:projectId/invite', authMiddleware, async (req, res) => {
     let connection;
     try {
@@ -132,42 +132,46 @@ router.post('/:projectId/invite', authMiddleware, async (req, res) => {
         
         connection = await mysql.createConnection(dbConfig);
         
-        // 1. 유저 확인
+        // 1) 초대할 유저가 존재하는지 확인
         const [users] = await connection.execute('SELECT id FROM users WHERE email = ?', [email]);
-        if (users.length === 0) return res.status(404).json({ message: '해당 이메일의 유저가 없습니다.' });
+        if (users.length === 0) {
+            return res.status(404).json({ message: '해당 이메일의 유저가 없습니다.' });
+        }
         
         const userId = users[0].id;
 
-        // 2. 이미 멤버인지 확인
+        // 2) 이미 프로젝트 멤버인지 확인
         const [existing] = await connection.execute(
             'SELECT * FROM project_members WHERE project_id = ? AND user_id = ?',
             [projectId, userId]
         );
-        if (existing.length > 0) return res.status(409).json({ message: '이미 프로젝트 멤버입니다.' });
+        if (existing.length > 0) {
+            return res.status(409).json({ message: '이미 프로젝트 멤버입니다.' });
+        }
 
-        // 3. 멤버 추가
+        // 3) 멤버로 추가
         await connection.execute(
             'INSERT INTO project_members (project_id, user_id, role, status) VALUES (?, ?, ?, ?)',
             [projectId, userId, 'member', 'active']
         );
 
         res.json({ message: '초대 성공' });
+
     } catch (error) {
-        console.error(error);
+        console.error('Invite Error:', error);
         res.status(500).json({ message: '초대 실패' });
     } finally {
         if (connection) await connection.end();
     }
 });
 
-// 🚨 6. 채팅 메시지 불러오기 (GET /:projectId/chat) - 여기가 중요!
+// 6. 채팅 메시지 불러오기
 router.get('/:projectId/chat', authMiddleware, async (req, res) => {
     let connection;
     try {
         const { projectId } = req.params;
         connection = await mysql.createConnection(dbConfig);
 
-        // 프론트엔드가 user_name을 기대하므로 sender_name을 user_name으로 별칭(alias) 처리
         const [messages] = await connection.execute(
             `SELECT id, project_id, user_id, sender_name as user_name, message as content, timestamp 
              FROM chat_messages 
@@ -177,40 +181,31 @@ router.get('/:projectId/chat', authMiddleware, async (req, res) => {
         );
 
         res.json(messages);
-
     } catch (error) {
-        console.error('Chat Load Error:', error);
         res.status(500).json({ message: '메시지 로드 실패' });
     } finally {
         if (connection) await connection.end();
     }
 });
 
-// 🚨 7. 채팅 메시지 저장하기 (POST /:projectId/chat) - 여기가 중요!
+// 7. 채팅 메시지 저장
 router.post('/:projectId/chat', authMiddleware, async (req, res) => {
     let connection;
     try {
         const { projectId } = req.params;
-        const { content } = req.body; // 프론트에서 content로 보냄
-        
-        // 현재 로그인한 유저 정보 가져오기 (이름 필요)
+        const { content } = req.body;
         const userId = req.user.userId;
-        const userEmail = req.user.email; // 혹은 DB에서 이름 조회 가능
 
         connection = await mysql.createConnection(dbConfig);
-
-        // 유저 이름 조회
         const [users] = await connection.execute('SELECT name FROM users WHERE id = ?', [userId]);
         const senderName = users[0].name;
 
-        // 메시지 저장
         const [result] = await connection.execute(
             `INSERT INTO chat_messages (project_id, user_id, sender_name, message, type) 
              VALUES (?, ?, ?, ?, 'text')`,
             [projectId, userId, senderName, content]
         );
 
-        // 저장된 메시지 정보 반환 (프론트엔드 UI 업데이트용)
         const newMessage = {
             id: result.insertId,
             project_id: projectId,
@@ -219,11 +214,8 @@ router.post('/:projectId/chat', authMiddleware, async (req, res) => {
             content: content,
             timestamp: new Date()
         };
-
         res.status(201).json(newMessage);
-
     } catch (error) {
-        console.error('Chat Save Error:', error);
         res.status(500).json({ message: '메시지 저장 실패' });
     } finally {
         if (connection) await connection.end();
