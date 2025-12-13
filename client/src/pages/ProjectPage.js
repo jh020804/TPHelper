@@ -69,7 +69,7 @@ function ProjectPage() {
                 setProjectData(prevData => {
                     if (!prevData) return prevData;
                     
-                    // 🚨 [안정성 강화] 갱신 전에 배열 내 유효하지 않은 요소 제거 (가장 중요)
+                    // 🚨 [안정성 강화] 갱신 전에 배열 내 유효하지 않은 요소 제거
                     let newTasks = prevData.tasks.filter(t => t && t.id); 
                     const taskIndex = newTasks.findIndex(t => t.id === updatedTask.id);
                     
@@ -83,7 +83,7 @@ function ProjectPage() {
                             newTasks[taskIndex] = updatedTask;
                         }
                     } else {
-                        // 새 Task가 추가된 경우
+                        // 새 Task가 추가된 경우 (생성 이벤트 처리)
                         newTasks.push(updatedTask);
                     }
                     
@@ -124,11 +124,19 @@ function ProjectPage() {
                 { headers: { Authorization: `Bearer ${token}` } }
             );
             
-            setNewTaskTitle('');
-            
             const createdTask = res.data.task; 
             
-            // 🚨 [핵심 수정] Task 생성 즉시 반영 로직
+            // 🚨 [핵심 수정 1] 서버 응답 검증 및 로컬 상태에 즉시 반영
+            if (!createdTask || !createdTask.id) {
+                 // 서버가 Task 객체를 제대로 반환하지 않았을 경우
+                 console.error("Task 생성 후 서버가 유효한 Task 객체를 반환하지 않았습니다.", res.data);
+                 alert('업무는 생성되었지만 화면 반영에 실패했습니다. (서버 응답 문제)');
+                 setNewTaskTitle('');
+                 return;
+            }
+            
+            setNewTaskTitle('');
+            
             setProjectData(prevData => {
                 if (!prevData) return prevData;
                 
@@ -236,7 +244,7 @@ function ProjectPage() {
             <DragDropContext onDragEnd={onDragEnd}>
                 <div className="kanban-board">
                     {Object.entries(STATUS_COLUMNS).map(([statusKey, statusLabel]) => {
-                        // 🚨 [핵심 수정] 렌더링 직전, 가장 확실한 위치에서 유효하지 않은 요소 필터링
+                        // 🚨 [핵심 수정] 렌더링 직전, 가장 확실한 위치에서 유효하지 않은 요소 필터링 (TypeError 방지)
                         const tasksInColumn = projectData.tasks
                             .filter(t => t && t.id && t.status === statusKey); 
                         
@@ -256,7 +264,6 @@ function ProjectPage() {
                                                 .slice()
                                                 .sort((a, b) => b.id - a.id)
                                                 .map((task, index) => (
-                                                    // 🚨 [최종 점검] 이 map 루프는 이제 안전합니다.
                                                     <Draggable key={task.id} draggableId={task.id.toString()} index={index}>
                                                         {(provided, snapshot) => (
                                                             <div
