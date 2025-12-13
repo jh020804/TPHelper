@@ -38,7 +38,7 @@ function ProjectPage() {
             });
             const data = res.data.details;
             
-            // 🚨 [안정화] 초기 로드 시 null/undefined Task 제거
+            // 초기 로드 시 null/undefined Task 제거
             const safeTasks = (data.tasks || []).filter(t => t && t.id);
             setProjectData({ ...data, tasks: safeTasks });
             
@@ -64,13 +64,11 @@ function ProjectPage() {
             socket.emit('joinRoom', projectId);
 
             const handleTaskUpdated = (updatedTask) => {
-                // 🚨 [안정화] 들어온 데이터부터 체크
                 if (!updatedTask || !updatedTask.id) return; 
 
                 setProjectData(prevData => {
                     if (!prevData) return prevData;
                     
-                    // 🚨 [핵심 안정화] 갱신 전에 배열 내 유효하지 않은 요소 제거
                     let newTasks = prevData.tasks.filter(t => t && t.id); 
                     const taskIndex = newTasks.findIndex(t => t.id === updatedTask.id);
                     
@@ -87,10 +85,9 @@ function ProjectPage() {
                         newTasks.push(updatedTask);
                     }
                     
-                    const uniqueTasks = Array.from(new Set(newTasks.map(t => t.id)))
-                                          .map(id => newTasks.find(t => t.id === id));
+                    const uniqueTasks = Array.from(new Set(newTasks.map(t => t && t.id))).map(id => newTasks.find(t => t.id === id));
                     
-                    return { ...prevData, tasks: uniqueTasks };
+                    return { ...prevData, tasks: uniqueTasks.filter(t => t && t.id) }; // 최종 반환 시에도 필터링
                 });
                 
                 setSelectedTask(prevSelected => {
@@ -132,10 +129,9 @@ function ProjectPage() {
             setProjectData(prevData => {
                 if (!prevData) return prevData;
                 
-                // 🚨 [안정화] 새 Task 추가 전, 배열 내 유효하지 않은 요소 제거
                 const safeTasks = prevData.tasks.filter(t => t && t.id); 
                 const newTasks = [...safeTasks, createdTask];
-                return { ...prevData, tasks: newTasks };
+                return { ...prevData, tasks: newTasks.filter(t => t && t.id) }; // 반환 시 필터링
             });
             
         } catch (error) {
@@ -154,7 +150,6 @@ function ProjectPage() {
 
         const newStatus = destination.droppableId;
         
-        // 🚨 [안정화] 드래그 시작 전, 배열에 null 요소가 있으면 제거 후 찾기
         const safeTasksBeforeDrag = projectData.tasks.filter(t => t && t.id);
         const taskToUpdate = safeTasksBeforeDrag.find(t => t.id.toString() === draggableId);
         if (!taskToUpdate) return;
@@ -165,7 +160,7 @@ function ProjectPage() {
         const updatedTasks = safeTasksBeforeDrag.map(task => 
             task.id.toString() === draggableId ? { ...task, status: newStatus } : task
         );
-        setProjectData(prev => ({ ...prev, tasks: updatedTasks }));
+        setProjectData(prev => ({ ...prev, tasks: updatedTasks.filter(t => t && t.id) })); // 반환 시 필터링
 
         try {
             await axios.patch(`${API_URL}/api/tasks/${draggableId}`, 
@@ -178,7 +173,7 @@ function ProjectPage() {
             const rollbackTasks = safeTasksBeforeDrag.map(task => 
                 task.id.toString() === draggableId ? { ...task, status: originalStatus } : task
             );
-            setProjectData(prev => ({ ...prev, tasks: rollbackTasks }));
+            setProjectData(prev => ({ ...prev, tasks: rollbackTasks.filter(t => t && t.id) })); // 반환 시 필터링
         }
     };
 
@@ -187,19 +182,16 @@ function ProjectPage() {
         setIsModalOpen(true);
     };
     
-    // 🚨 [핵심 수정] TaskModal에서 내용이 업데이트된 후 호출됨
+    // TaskModal에서 내용이 업데이트된 후 호출됨
     const handleModalUpdate = (updatedTask) => {
-        // 모달에서 내용 저장 시, 현재 페이지 상태를 갱신
         setProjectData(prevData => {
             if (!prevData) return prevData;
             
-            // 🚨 [안정화] 업데이트 전 유효하지 않은 요소 제거
             const safeTasks = prevData.tasks.filter(t => t && t.id); 
             const newTasks = safeTasks.map(t => 
-                // 🚨 [안정화] 업데이트된 Task 객체가 유효한 경우에만 갱신
                 (t.id === updatedTask.id && updatedTask && updatedTask.id) ? updatedTask : t
             );
-            return { ...prevData, tasks: newTasks };
+            return { ...prevData, tasks: newTasks.filter(t => t && t.id) }; // 반환 시 필터링
         });
         
         setSelectedTask(updatedTask); 
@@ -237,7 +229,7 @@ function ProjectPage() {
             <DragDropContext onDragEnd={onDragEnd}>
                 <div className="kanban-board">
                     {Object.entries(STATUS_COLUMNS).map(([statusKey, statusLabel]) => {
-                        // 🚨 [최종 안정화] 렌더링 직전, 가장 확실한 위치에서 유효하지 않은 요소 필터링
+                        // 🚨 [최종 안정화] 렌더링 직전 유효하지 않은 요소 필터링
                         const tasksInColumn = projectData.tasks
                             .filter(t => t && t.id && t.status === statusKey); 
                         
@@ -256,28 +248,33 @@ function ProjectPage() {
                                             {tasksInColumn
                                                 .slice()
                                                 .sort((a, b) => b.id - a.id)
-                                                .map((task, index) => (
-                                                    <Draggable key={task.id} draggableId={task.id.toString()} index={index}>
-                                                        {(provided, snapshot) => (
-                                                            <div
-                                                                className={`task-card ${snapshot.isDragging ? 'is-dragging' : ''}`}
-                                                                ref={provided.innerRef}
-                                                                {...provided.draggableProps}
-                                                                {...provided.dragHandleProps}
-                                                                onClick={() => handleTaskClick(task)}
-                                                            >
-                                                                <div className="task-content" style={{ fontWeight: 'bold' }}>
-                                                                    {task.title || "(제목 없음)"}
+                                                .map((task, index) => {
+                                                    // 🚨 [핵심 방어] map 내부에서 다시 한 번 유효성 검사 (200 라인 주변 방어)
+                                                    if (!task || !task.id) return null; 
+
+                                                    return (
+                                                        <Draggable key={task.id} draggableId={task.id.toString()} index={index}>
+                                                            {(provided, snapshot) => (
+                                                                <div
+                                                                    className={`task-card ${snapshot.isDragging ? 'is-dragging' : ''}`}
+                                                                    ref={provided.innerRef}
+                                                                    {...provided.draggableProps}
+                                                                    {...provided.dragHandleProps}
+                                                                    onClick={() => handleTaskClick(task)}
+                                                                >
+                                                                    <div className="task-content" style={{ fontWeight: 'bold' }}>
+                                                                        {task.title || "(제목 없음)"}
+                                                                    </div>
+                                                                    <div className="task-meta">
+                                                                        {task.content && <span style={{ marginRight: '5px' }}>📝</span>}
+                                                                        {task.assignee_name && <span className="task-assignee">👤 {task.assignee_name}</span>}
+                                                                        {task.due_date && <span className="task-date">📅 {task.due_date.split('T')[0]}</span>}
+                                                                    </div>
                                                                 </div>
-                                                                <div className="task-meta">
-                                                                    {task.content && <span style={{ marginRight: '5px' }}>📝</span>}
-                                                                    {task.assignee_name && <span className="task-assignee">👤 {task.assignee_name}</span>}
-                                                                    {task.due_date && <span className="task-date">📅 {task.due_date.split('T')[0]}</span>}
-                                                                </div>
-                                                            </div>
-                                                        )}
-                                                    </Draggable>
-                                            ))}
+                                                            )}
+                                                        </Draggable>
+                                                    );
+                                                })}
                                             {provided.placeholder}
                                         </div>
                                     )}
