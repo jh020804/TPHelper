@@ -46,34 +46,39 @@ router.patch('/:taskId', authMiddleware, async (req, res) => {
             params.push(status); 
         }
         if (due_date !== undefined) { 
+            // 🚨 [안정화] 프론트엔드에서 빈 문자열이 오면 null로 처리
             updates.push('due_date = ?'); 
             params.push(due_date || null); 
         }
         if (assignee_id !== undefined) { 
+            // 🚨 [안정화] 프론트엔드에서 빈 문자열이 오면 null로 처리
             updates.push('assignee_id = ?'); 
             params.push(assignee_id || null); 
         }
 
         if (updates.length === 0) {
-            return res.json({ message: '업데이트할 내용이 없습니다.' });
+            // 🚨 [수정] 업데이트할 내용이 없는 경우에도 Task 객체를 다시 보내서 프론트엔드가 상태를 갱신할 수 있게 함 (아래 참조)
         }
         
         params.push(taskId);
 
         connection = await mysql.createConnection(dbConfig);
         
-        // 1. DB 업데이트 실행
-        await connection.execute(
-            `UPDATE tasks 
-             SET ${updates.join(', ')} 
-             WHERE id = ?`,
-            params
-        );
+        // 1. DB 업데이트 실행 (업데이트 내용이 있을 경우에만 실행)
+        if (updates.length > 0) {
+            await connection.execute(
+                `UPDATE tasks 
+                 SET ${updates.join(', ')} 
+                 WHERE id = ?`,
+                params
+            );
+        }
         
         // 2. 수정된 데이터 조회 및 소켓 전송을 위한 준비
+        // TaskModal에서 onUpdate에 전달할 최신 Task 객체를 가져옵니다.
         const [ut] = await connection.execute(`
             SELECT 
-                t.id, t.title, t.content, t.status, t.due_date, t.project_id, 
+                t.id, t.title, t.content, t.status, t.due_date, t.project_id, t.created_at,
                 u.name as assignee_name 
             FROM tasks t 
             LEFT JOIN users u ON t.assignee_id = u.id 
@@ -86,13 +91,13 @@ router.patch('/:taskId', authMiddleware, async (req, res) => {
         const safeTasks = ut.filter(t => t && t.id);
         const updatedTask = safeTasks.length > 0 ? safeTasks[0] : null;
 
-        if (updatedTask) { // 🚨 유효한 updatedTask 객체만 소켓 전송
+        if (updatedTask) { 
             const projectId = String(updatedTask.project_id);
             
             const io = req.app.get('io');
             
             if (io) {
-                // 3. 소켓을 통해 변경 사항 알림
+                // 3. 소켓을 통해 변경 사항 알림 (다른 사용자에게 실시간 반영)
                 io.to(projectId).emit('taskUpdated', updatedTask);
                 console.log(`[Socket Broadcast] Task ${taskId} updated and broadcasted to room ${projectId}`);
             } else {
@@ -100,7 +105,11 @@ router.patch('/:taskId', authMiddleware, async (req, res) => {
             }
         }
         
-        res.json({ message: '업무 업데이트 성공' });
+        // 🚨 [핵심 수정] 4. 프론트엔드가 즉시 상태를 갱신할 수 있도록 Task 객체를 응답에 포함
+        res.json({ 
+            message: '업무 업데이트 성공',
+            task: updatedTask // <--- 이 task 키가 필수입니다!
+        }); 
         
     } catch (error) {
         console.error('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!');
@@ -172,6 +181,12 @@ router.delete('/:taskId', authMiddleware, async (req, res) => {
         const { taskId } = req.params;
         connection = await mysql.createConnection(dbConfig);
         await connection.execute('DELETE FROM tasks WHERE id = ?', [taskId]);
+        
+        // 🚨 [추가] 삭제 후 다른 사용자에게 소켓 알림 (필요한 경우)
+        // if (req.app.get('io')) {
+        //     req.app.get('io').to(projectId).emit('taskDeleted', taskId);
+        // }
+        
         res.json({ message: '삭제 성공' });
     } catch (error) {
         console.error('Delete Task Error:', error);
