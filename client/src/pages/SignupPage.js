@@ -1,25 +1,23 @@
 import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom'; // Link 컴포넌트를 사용하기 위해 import 추가
+import { useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
-import './SignupPage.css';
+import './SignupPage.css'; // 이 파일의 CSS 선택자에 맞춰 HTML 클래스 수정
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001';
 
 function SignupPage() {
-    // 🚨 [수정] formData에 confirmPassword 필드 추가
     const [formData, setFormData] = useState({ 
         email: '', 
         password: '', 
-        confirmPassword: '', // 비밀번호 재확인 필드 추가
+        confirmPassword: '', 
         name: '' 
     });
-    const [error, setError] = useState(''); // 에러 메시지 상태 추가
-    const [loading, setLoading] = useState(false); // 로딩 상태 추가
+    const [error, setError] = useState('');
+    const [loading, setLoading] = useState(false);
     const navigate = useNavigate();
 
     const handleChange = (e) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
-        // 입력 변경 시 에러 메시지 초기화
         if (error) setError('');
     };
 
@@ -31,13 +29,11 @@ function SignupPage() {
             return false;
         }
 
-        // 🚨 [핵심] 비밀번호 일치 확인
         if (password !== confirmPassword) {
             setError('비밀번호가 일치하지 않습니다.');
             return false;
         }
 
-        // 비밀번호 길이 등 추가 유효성 검사
         if (password.length < 6) {
             setError('비밀번호는 최소 6자 이상이어야 합니다.');
             return false;
@@ -56,7 +52,6 @@ function SignupPage() {
         }
         
         setLoading(true);
-        // 서버에 전송할 때에는 confirmPassword를 제외한 데이터만 보냅니다.
         const { confirmPassword, ...dataToSend } = formData; 
 
         try {
@@ -76,15 +71,20 @@ function SignupPage() {
     };
 
     return (
-        <div className="auth-container"> {/* 클래스명은 SignupPage.css에 맞춰 조정 */}
-            <div className="auth-box"> {/* 클래스명은 SignupPage.css에 맞춰 조정 */}
-                <h2 className="auth-title">회원가입</h2>
-                <form className="auth-form" onSubmit={onSubmit}>
+        // 🚨 [수정] 클래스명 통일: auth-container -> signup-container
+        <div className="signup-container"> 
+            {/* 🚨 [수정] 클래스명 통일: auth-box -> signup-box */}
+            <div className="signup-box"> 
+                {/* 🚨 [수정] 클래스명 통일: auth-title -> signup-title */}
+                <h2 className="signup-title">회원가입</h2>
+                {/* 🚨 [수정] 클래스명 통일: auth-form -> signup-form */}
+                <form className="signup-form" onSubmit={onSubmit}> 
                     <div className="input-group">
                         <label>이름</label>
                         <input 
                             type="text" 
                             name="name" 
+                            value={formData.name} // value 추가 (React에서 권장)
                             onChange={handleChange} 
                             placeholder="이름을 입력하세요" 
                             required 
@@ -95,6 +95,7 @@ function SignupPage() {
                         <input 
                             type="email" 
                             name="email" 
+                            value={formData.email} // value 추가
                             onChange={handleChange} 
                             placeholder="이메일을 입력하세요" 
                             required 
@@ -105,18 +106,19 @@ function SignupPage() {
                         <input 
                             type="password" 
                             name="password" 
+                            value={formData.password} // value 추가
                             onChange={handleChange} 
                             placeholder="비밀번호 (최소 6자)" 
                             required 
                         />
                     </div>
                     
-                    {/* 🚨 [추가] 비밀번호 재확인 필드 */}
                     <div className="input-group">
                         <label>비밀번호 재확인</label>
                         <input 
                             type="password" 
-                            name="confirmPassword" // name 속성 추가
+                            name="confirmPassword"
+                            value={formData.confirmPassword} // value 추가
                             onChange={handleChange} 
                             placeholder="비밀번호를 다시 입력하세요" 
                             required 
@@ -125,7 +127,8 @@ function SignupPage() {
                     
                     {error && <p className="error-message">{error}</p>}
                     
-                    <button type="submit" className="auth-button" disabled={loading}>
+                    {/* 🚨 [수정] 클래스명 통일: auth-button -> signup-btn */}
+                    <button type="submit" className="signup-btn" disabled={loading}>
                         {loading ? '가입 중...' : '가입하기'}
                     </button>
                 </form>
