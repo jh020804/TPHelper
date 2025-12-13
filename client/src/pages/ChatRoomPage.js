@@ -14,6 +14,7 @@ function ChatRoomPage() {
     const [messageInput, setMessageInput] = useState('');
     const messagesEndRef = useRef(null);
     const token = localStorage.getItem('token');
+    const myUserId = JSON.parse(atob(token.split('.')[1])).userId; // 토큰에서 userId 추출
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -52,45 +53,55 @@ function ChatRoomPage() {
         socket.emit('joinRoom', projectId);
 
         const handleReceiveMessage = (data) => {
-            // 🚨 핵심 수정: 변수명 불일치 해결 (projectId 또는 project_id 확인)
             const msgProjectId = data.projectId || data.project_id;
             
             if (String(msgProjectId) === String(projectId)) {
-                setMessages((prev) => [...prev, data]);
-                setTimeout(scrollToBottom, 100);
+                // 🚨 [핵심 수정] 1: 자기 자신이 보낸 메시지가 아닐 경우에만 상태에 추가
+                // (자신이 보낸 메시지는 handleSendMessage에서 이미 로컬 상태에 추가했으므로)
+                if (data.user_id !== myUserId) {
+                    setMessages((prev) => [...prev, data]);
+                    setTimeout(scrollToBottom, 100);
+                }
             }
         };
 
         socket.on('receiveMessage', handleReceiveMessage);
 
+        // 🚨 [핵심 수정] 2: 컴포넌트 언마운트 시 리스너 해제 (중복 리스너 방지)
         return () => {
             socket.off('receiveMessage', handleReceiveMessage);
         };
-    }, [socket, projectId]);
+    }, [socket, projectId, myUserId]); // 의존성 배열에 myUserId 추가
 
     // 3. 메시지 전송
     const handleSendMessage = async () => {
         if (!messageInput.trim()) return;
 
+        const messageToSend = messageInput; // 현재 입력 값 저장
+        setMessageInput(''); // 입력창 초기화 (낙관적 UI)
+
         try {
             // (1) DB 저장 요청
             const response = await axios.post(`${API_URL}/api/projects/${projectId}/chat`, 
-                { content: messageInput }, 
+                { content: messageToSend }, 
                 { headers: { Authorization: `Bearer ${token}` } }
             );
             
-            const savedMessage = response.data;
+            const savedMessage = response.data; // 서버에서 반환된 최종 메시지 객체
 
-            // (2) 소켓 전송
+            // 🚨 [핵심 수정] 3: 서버 응답을 받은 후, 소켓 리스너를 통하지 않고 로컬 상태에 직접 추가
+            setMessages((prev) => [...prev, savedMessage]);
+            setTimeout(scrollToBottom, 100);
+            
+            // (2) 소켓 전송 (다른 사용자에게 알리기 위함)
             if (socket) {
-                // 🚨 핵심 수정: 서버가 방을 찾을 수 있도록 projectId를 명시적으로 추가해서 보냄
+                // savedMessage에는 user_id가 포함되어 있으므로, 이를 이용해 수신자가 필터링할 수 있음
                 socket.emit('sendMessage', { 
                     ...savedMessage, 
-                    projectId: projectId // 이거 없으면 실시간 안됨!
+                    projectId: projectId
                 });
             }
 
-            setMessageInput('');
         } catch (error) {
             console.error('전송 실패:', error);
             alert('메시지 전송 실패');
@@ -113,7 +124,8 @@ function ChatRoomPage() {
                         <div className={`message-bubble ${isMentioned(msg.content) ? 'message-mentioned' : ''}`}>
                             {!isMyMessage(msg.user_name) && <div className="message-sender">{msg.user_name}</div>}
                             <div className="message-content">{msg.content}</div>
-                            <div className="message-time">{formatTime(msg.timestamp)}</div>
+                            {/* timestamp 필드가 존재하면 표시, 아니면 현재 시간 사용 */}
+                            <div className="message-time">{formatTime(msg.timestamp || new Date().toISOString())}</div>
                         </div>
                     </div>
                 ))}
