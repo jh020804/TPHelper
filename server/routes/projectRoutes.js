@@ -120,10 +120,11 @@ router.post('/:projectId/tasks', authMiddleware, async (req, res) => {
         const safeTasks = filterSafeTasks(tasks);
         const newTask = safeTasks.length > 0 ? safeTasks[0] : null;
 
-        // 3. 소켓을 통해 다른 사용자에게 알림 (io.to는 본인 포함 모두에게 보냄)
+        // 3. 소켓을 통해 다른 사용자에게 알림
         const io = req.app.get('io');
         if (io && newTask) {
-            io.to(String(projectId)).emit('taskUpdated', newTask);
+            // io.to는 본인 포함 모두에게 브로드캐스트
+            io.to(String(projectId)).emit('taskUpdated', newTask); 
         }
         
         // 4. 생성된 Task 객체를 응답에 포함
@@ -179,7 +180,6 @@ router.get('/invitations/me', authMiddleware, async (req, res) => {
     let connection;
     try {
         connection = await mysql.createConnection(dbConfig);
-        // 상태가 'pending'인 프로젝트 목록 조회
         const [invitations] = await connection.execute(
             `SELECT p.id, p.name, u.name as owner_name
              FROM project_members pm
@@ -202,19 +202,17 @@ router.post('/invitations/:projectId/respond', authMiddleware, async (req, res) 
     let connection;
     try {
         const { projectId } = req.params;
-        const { accept } = req.body; // true(수락) or false(거절)
+        const { accept } = req.body; 
 
         connection = await mysql.createConnection(dbConfig);
 
         if (accept) {
-            // 수락 시 status를 'active'로 변경
             await connection.execute(
                 'UPDATE project_members SET status = "active", joined_at = NOW() WHERE project_id = ? AND user_id = ?',
                 [projectId, req.user.userId]
             );
             res.json({ message: '프로젝트에 참여했습니다.' });
         } else {
-            // 거절 시 목록에서 삭제
             await connection.execute(
                 'DELETE FROM project_members WHERE project_id = ? AND user_id = ?',
                 [projectId, req.user.userId]
@@ -254,8 +252,18 @@ router.post('/:projectId/chat', authMiddleware, async (req, res) => {
         connection = await mysql.createConnection(dbConfig);
         const [users] = await connection.execute('SELECT name FROM users WHERE id = ?', [userId]);
         const senderName = users[0].name;
+        
         const [result] = await connection.execute('INSERT INTO chat_messages (project_id, user_id, sender_name, message, type) VALUES (?, ?, ?, ?, "text")', [projectId, userId, senderName, content]);
-        const newMessage = { id: result.insertId, project_id: projectId, user_id: userId, user_name: senderName, content, timestamp: new Date() };
+        
+        const newMessage = { 
+            id: result.insertId, 
+            project_id: projectId, 
+            user_id: userId, 
+            user_name: senderName, 
+            content, 
+            timestamp: new Date().toISOString()
+        };
+        
         res.status(201).json(newMessage);
     } catch (error) {
         res.status(500).json({ message: '메시지 저장 실패' });
