@@ -64,7 +64,6 @@ function ProjectPage() {
             socket.emit('joinRoom', projectId);
 
             const handleTaskUpdated = (updatedTask) => {
-                // 🚨 [안정성 강화] 들어온 데이터부터 체크
                 if (!updatedTask || !updatedTask.id) return; 
 
                 setProjectData(prevData => {
@@ -77,12 +76,10 @@ function ProjectPage() {
                     if (taskIndex > -1) {
                         const oldTask = newTasks[taskIndex];
                         
-                        // 상태가 변경되었으면, 기존 위치에서 제거하고 새 Task를 추가
                         if (oldTask.status !== updatedTask.status) {
                             newTasks.splice(taskIndex, 1);
                             newTasks.push(updatedTask);
                         } else {
-                            // 상태가 같으면 내용만 업데이트
                             newTasks[taskIndex] = updatedTask;
                         }
                     } else {
@@ -90,7 +87,6 @@ function ProjectPage() {
                         newTasks.push(updatedTask);
                     }
                     
-                    // 최종적으로 ID를 기준으로 중복 제거
                     const uniqueTasks = Array.from(new Set(newTasks.map(t => t.id)))
                                           .map(id => newTasks.find(t => t.id === id));
                     
@@ -158,13 +154,15 @@ function ProjectPage() {
 
         const newStatus = destination.droppableId;
         
-        const taskToUpdate = projectData.tasks.find(t => t.id.toString() === draggableId);
+        // 🚨 [안정성 강화] 드래그 시작 전, 배열에 null 요소가 있으면 제거 후 찾기
+        const safeTasksBeforeDrag = projectData.tasks.filter(t => t && t.id);
+        const taskToUpdate = safeTasksBeforeDrag.find(t => t.id.toString() === draggableId);
         if (!taskToUpdate) return;
         
         const originalStatus = taskToUpdate.status;
         
         // 1. UI 즉시 반영 (낙관적 업데이트)
-        const updatedTasks = projectData.tasks.map(task => 
+        const updatedTasks = safeTasksBeforeDrag.map(task => 
             task.id.toString() === draggableId ? { ...task, status: newStatus } : task
         );
         setProjectData(prev => ({ ...prev, tasks: updatedTasks }));
@@ -177,7 +175,7 @@ function ProjectPage() {
         } catch (error) {
             console.error("드래그 업데이트 실패", error);
             // 실패 시 원복
-            const rollbackTasks = projectData.tasks.map(task => 
+            const rollbackTasks = safeTasksBeforeDrag.map(task => 
                 task.id.toString() === draggableId ? { ...task, status: originalStatus } : task
             );
             setProjectData(prev => ({ ...prev, tasks: rollbackTasks }));
@@ -238,9 +236,9 @@ function ProjectPage() {
             <DragDropContext onDragEnd={onDragEnd}>
                 <div className="kanban-board">
                     {Object.entries(STATUS_COLUMNS).map(([statusKey, statusLabel]) => {
-                        // 🚨 [핵심 수정] tasks 배열의 요소 안전 검사 및 필터링
+                        // 🚨 [핵심 수정] 렌더링 직전, 가장 확실한 위치에서 유효하지 않은 요소 필터링
                         const tasksInColumn = projectData.tasks
-                            .filter(t => t && t.id && t.status === statusKey); // 👈 렌더링 직전 최종 검사
+                            .filter(t => t && t.id && t.status === statusKey); 
                         
                         return (
                             <div key={statusKey} className="kanban-column">
@@ -258,6 +256,7 @@ function ProjectPage() {
                                                 .slice()
                                                 .sort((a, b) => b.id - a.id)
                                                 .map((task, index) => (
+                                                    // 🚨 [최종 점검] 이 map 루프는 이제 안전합니다.
                                                     <Draggable key={task.id} draggableId={task.id.toString()} index={index}>
                                                         {(provided, snapshot) => (
                                                             <div
