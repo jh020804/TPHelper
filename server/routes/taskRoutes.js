@@ -82,19 +82,20 @@ router.patch('/:taskId', authMiddleware, async (req, res) => {
 
         await connection.end();
 
-        if (ut.length > 0) {
-            const updatedTask = ut[0];
+        // 🚨 [핵심 수정] 조회 결과(ut)에 필터링을 적용하여 null이나 유효하지 않은 객체를 제거
+        const safeTasks = ut.filter(t => t && t.id);
+        const updatedTask = safeTasks.length > 0 ? safeTasks[0] : null;
+
+        if (updatedTask) { // 🚨 유효한 updatedTask 객체만 소켓 전송
             const projectId = String(updatedTask.project_id);
             
-            // 🚨 [수정] io 인스턴스를 명시적으로 가져와서 사용
             const io = req.app.get('io');
             
             if (io) {
                 // 3. 소켓을 통해 변경 사항 알림
                 io.to(projectId).emit('taskUpdated', updatedTask);
-                console.log(`[Socket Broadcast] Task ${taskId} updated to room ${projectId}`);
+                console.log(`[Socket Broadcast] Task ${taskId} updated and broadcasted to room ${projectId}`);
             } else {
-                // 🚨 [디버깅 로그] io 인스턴스가 없는 경우를 대비
                 console.warn('[Socket Warning] Socket.io instance not found. Real-time update failed.');
             }
         }
@@ -102,7 +103,6 @@ router.patch('/:taskId', authMiddleware, async (req, res) => {
         res.json({ message: '업무 업데이트 성공' });
         
     } catch (error) {
-        // 🚨🚨 [500 에러 포착] SQL 오류 발생 시 Render 로그에 찍힐 것입니다.
         console.error('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!');
         console.error('!!! Task Update 500 에러 발생 (SQL/DB 문제) !!!');
         console.error('!!! 상세 에러:', error.message, '!!!');
@@ -111,7 +111,13 @@ router.patch('/:taskId', authMiddleware, async (req, res) => {
         
         res.status(500).json({ message: '업무 수정 실패', error: error.message });
     } finally {
-        if (connection) await connection.end();
+        if (connection) {
+            try {
+                await connection.end();
+            } catch (e) {
+                console.error('Error closing connection:', e);
+            }
+        }
     }
 });
 
