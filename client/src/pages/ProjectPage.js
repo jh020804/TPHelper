@@ -38,7 +38,7 @@ function ProjectPage() {
             });
             const data = res.data.details;
             
-            // 🚨 [안정성 강화] 데이터를 로드할 때 Tasks 배열 내부의 null/undefined를 제거
+            // 🚨 [안정화] 초기 로드 시 null/undefined Task 제거
             const safeTasks = (data.tasks || []).filter(t => t && t.id);
             setProjectData({ ...data, tasks: safeTasks });
             
@@ -64,12 +64,13 @@ function ProjectPage() {
             socket.emit('joinRoom', projectId);
 
             const handleTaskUpdated = (updatedTask) => {
+                // 🚨 [안정화] 들어온 데이터부터 체크
                 if (!updatedTask || !updatedTask.id) return; 
 
                 setProjectData(prevData => {
                     if (!prevData) return prevData;
                     
-                    // 🚨 [안정성 강화] 갱신 전에 배열 내 유효하지 않은 요소 제거
+                    // 🚨 [핵심 안정화] 갱신 전에 배열 내 유효하지 않은 요소 제거
                     let newTasks = prevData.tasks.filter(t => t && t.id); 
                     const taskIndex = newTasks.findIndex(t => t.id === updatedTask.id);
                     
@@ -83,7 +84,6 @@ function ProjectPage() {
                             newTasks[taskIndex] = updatedTask;
                         }
                     } else {
-                        // 새 Task가 추가된 경우 (생성 이벤트 처리)
                         newTasks.push(updatedTask);
                     }
                     
@@ -124,23 +124,15 @@ function ProjectPage() {
                 { headers: { Authorization: `Bearer ${token}` } }
             );
             
-            const createdTask = res.data.task; 
-            
-            // 🚨 [핵심 수정 1] 서버 응답 검증 및 로컬 상태에 즉시 반영
-            if (!createdTask || !createdTask.id) {
-                 // 서버가 Task 객체를 제대로 반환하지 않았을 경우
-                 console.error("Task 생성 후 서버가 유효한 Task 객체를 반환하지 않았습니다.", res.data);
-                 alert('업무는 생성되었지만 화면 반영에 실패했습니다. (서버 응답 문제)');
-                 setNewTaskTitle('');
-                 return;
-            }
-            
             setNewTaskTitle('');
             
+            const createdTask = res.data.task; 
+            
+            // Task 생성 즉시 반영 로직
             setProjectData(prevData => {
                 if (!prevData) return prevData;
                 
-                // 🚨 [안정성 강화] 새 Task 추가 전, 배열 내 유효하지 않은 요소 제거
+                // 🚨 [안정화] 새 Task 추가 전, 배열 내 유효하지 않은 요소 제거
                 const safeTasks = prevData.tasks.filter(t => t && t.id); 
                 const newTasks = [...safeTasks, createdTask];
                 return { ...prevData, tasks: newTasks };
@@ -162,7 +154,7 @@ function ProjectPage() {
 
         const newStatus = destination.droppableId;
         
-        // 🚨 [안정성 강화] 드래그 시작 전, 배열에 null 요소가 있으면 제거 후 찾기
+        // 🚨 [안정화] 드래그 시작 전, 배열에 null 요소가 있으면 제거 후 찾기
         const safeTasksBeforeDrag = projectData.tasks.filter(t => t && t.id);
         const taskToUpdate = safeTasksBeforeDrag.find(t => t.id.toString() === draggableId);
         if (!taskToUpdate) return;
@@ -195,15 +187,17 @@ function ProjectPage() {
         setIsModalOpen(true);
     };
     
-    // TaskModal에서 내용이 업데이트된 후 호출됨
+    // 🚨 [핵심 수정] TaskModal에서 내용이 업데이트된 후 호출됨
     const handleModalUpdate = (updatedTask) => {
+        // 모달에서 내용 저장 시, 현재 페이지 상태를 갱신
         setProjectData(prevData => {
             if (!prevData) return prevData;
             
-            // 🚨 [안정성 강화] 업데이트 전 유효하지 않은 요소 제거
+            // 🚨 [안정화] 업데이트 전 유효하지 않은 요소 제거
             const safeTasks = prevData.tasks.filter(t => t && t.id); 
             const newTasks = safeTasks.map(t => 
-                t.id === updatedTask.id ? updatedTask : t
+                // 🚨 [안정화] 업데이트된 Task 객체가 유효한 경우에만 갱신
+                (t.id === updatedTask.id && updatedTask && updatedTask.id) ? updatedTask : t
             );
             return { ...prevData, tasks: newTasks };
         });
@@ -216,7 +210,6 @@ function ProjectPage() {
     // 렌더링
     // ----------------------------------------------------------------------
     if (loading) return <div className="loading">로딩 중...</div>;
-    // 🚨 [안정성 강화] projectData.tasks가 없거나 배열이 아닐 경우 렌더링하지 않음
     if (!projectData || !Array.isArray(projectData.tasks)) return <div>데이터 로드 실패 또는 데이터 없음</div>;
 
     return (
@@ -244,7 +237,7 @@ function ProjectPage() {
             <DragDropContext onDragEnd={onDragEnd}>
                 <div className="kanban-board">
                     {Object.entries(STATUS_COLUMNS).map(([statusKey, statusLabel]) => {
-                        // 🚨 [핵심 수정] 렌더링 직전, 가장 확실한 위치에서 유효하지 않은 요소 필터링 (TypeError 방지)
+                        // 🚨 [최종 안정화] 렌더링 직전, 가장 확실한 위치에서 유효하지 않은 요소 필터링
                         const tasksInColumn = projectData.tasks
                             .filter(t => t && t.id && t.status === statusKey); 
                         
