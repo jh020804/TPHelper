@@ -260,11 +260,11 @@ function ProjectPage() {
                                                 .slice()
                                                 .sort((a, b) => b.id - a.id)
                                                 .map((task, index) => {
-                                                    // 🚨 [궁극의 방어] 렌더링 직전, Task가 유효한지 다시 한번 확인
+                                                    // 🚨 [궁극의 방어] map 내부에서 다시 한 번 유효성 검사 (201 라인 방어)
                                                     if (!task || !task.id) return null; 
 
                                                     return (
-                                                        // key와 draggableId에 안전하게 접근
+                                                        // key와 draggableId를 String(task.id)로 명시적 변환
                                                         <Draggable key={String(task.id)} draggableId={String(task.id)} index={index}>
                                                             {(provided, snapshot) => (
                                                                 <div
