@@ -18,7 +18,6 @@ function ProjectPage() {
     const navigate = useNavigate();
     const token = localStorage.getItem('token');
     
-    // 🚨 [수정] useOutletContext에서 socket을 가져옵니다.
     const { setHeaderTitle, setMembers, setCurrentProjectId, socket } = useOutletContext(); 
 
     const [projectData, setProjectData] = useState(null);
@@ -59,9 +58,8 @@ function ProjectPage() {
         // 프로젝트 정보 로드
         fetchProjectDetails();
 
-        // 🚨🚨 [핵심 추가] 소켓 리스너 설정
+        // 🚨🚨 [핵심] 소켓 리스너 설정
         if (socket && projectId) {
-            // 해당 프로젝트 방에 입장
             socket.emit('joinRoom', projectId);
 
             const handleTaskUpdated = (updatedTask) => {
@@ -71,32 +69,27 @@ function ProjectPage() {
                 setProjectData(prevData => {
                     if (!prevData) return prevData;
                     
-                    // 기존 Task 배열을 복사
-                    let newTasks = [...prevData.tasks];
+                    // 🚨 [안정성 강화] 갱신 전에 배열 내 유효하지 않은 요소 제거 (TypeError 방지)
+                    let newTasks = prevData.tasks.filter(t => t && t.id); 
                     const taskIndex = newTasks.findIndex(t => t.id === updatedTask.id);
                     
                     if (taskIndex > -1) {
-                        // Task가 이미 존재한다면
                         const oldTask = newTasks[taskIndex];
                         
-                        // 상태(status)가 변경되었는지 확인
+                        // 상태가 변경되었으면, 기존 위치에서 제거하고 새 Task를 추가
                         if (oldTask.status !== updatedTask.status) {
-                            // 상태가 변경되었으면, 기존 위치에서 제거하고 (map에서 처리하지 않고 findIndex로 처리)
                             newTasks.splice(taskIndex, 1);
-                            
-                            // 새 Task를 추가 (아래에서 다시 filter되므로 일단 배열 끝에 추가)
                             newTasks.push(updatedTask);
-                            
                         } else {
-                            // 상태는 그대로이고 내용만 변경된 경우, 해당 Task 내용만 업데이트
+                            // 상태가 같으면 내용만 업데이트
                             newTasks[taskIndex] = updatedTask;
                         }
                     } else {
-                        // 새 Task가 추가된 경우 (addTask를 이 이벤트로 처리 가능)
+                        // 새 Task가 추가된 경우 (Task 생성 이벤트 처리)
                         newTasks.push(updatedTask);
                     }
                     
-                    // 최종적으로 ID를 기준으로 중복 제거 (Task 상태 변경 시 새 Task를 push할 경우 대비)
+                    // 최종적으로 ID를 기준으로 중복 제거
                     const uniqueTasks = Array.from(new Set(newTasks.map(t => t.id)))
                                           .map(id => newTasks.find(t => t.id === id));
                     
@@ -114,12 +107,12 @@ function ProjectPage() {
 
             socket.on('taskUpdated', handleTaskUpdated);
             
-            // 클린업 함수 (컴포넌트 언마운트 시 리스너 해제)
+            // 클린업 함수
             return () => {
                 socket.off('taskUpdated', handleTaskUpdated);
             };
         }
-    }, [projectId, fetchProjectDetails, socket]); // 의존성 배열에 socket 추가
+    }, [projectId, fetchProjectDetails, socket]);
 
     // ----------------------------------------------------------------------
     // Task 추가 로직 (addTask)
@@ -127,7 +120,7 @@ function ProjectPage() {
     const addTask = async () => {
         if (!newTaskTitle.trim()) return;
         try {
-            // 🚨 [수정] 생성 후 응답받은 Task 데이터로 상태를 직접 업데이트합니다.
+            // 🚨 [핵심 수정 1] Task 생성 후 응답을 받아 즉시 상태에 반영
             const res = await axios.post(`${API_URL}/api/projects/${projectId}/tasks`, 
                 { 
                     title: newTaskTitle, 
@@ -139,13 +132,20 @@ function ProjectPage() {
             
             setNewTaskTitle('');
             
-            // 🚨 [수정] 생성된 Task를 즉시 로컬 상태에 반영 (소켓 이벤트를 기다리지 않아도 됨)
-            // 주의: 백엔드에서 생성 후 소켓을 통해 브로드캐스트해야 다른 사용자에게도 반영됩니다.
+            // 🚨 [핵심 수정 2] 생성된 Task를 로컬 상태에 직접 추가 (새로고침 방지)
+            const createdTask = res.data.task; // 가정: 백엔드가 { task: { id, title, ... } } 형태로 응답
             
-            // fetchProjectDetails(); // 소켓을 사용하므로 API 재호출은 생략합니다.
+            setProjectData(prevData => {
+                // 🚨 [안정성 강화] 새 Task 추가 전, 배열에 혹시 모를 null/undefined 요소 제거
+                const safeTasks = prevData.tasks.filter(t => t && t.id); 
+                const newTasks = [...safeTasks, createdTask];
+                return { ...prevData, tasks: newTasks };
+            });
+            
+            // Task가 성공적으로 생성되었으므로, 백엔드는 소켓을 통해 다른 사용자에게도 이 변경사항을 브로드캐스트할 것입니다.
             
         } catch (error) {
-            console.error(error);
+            console.error("업무 추가 실패:", error);
             alert('업무 추가 실패: 서버 로그를 확인해주세요.');
         }
     };
@@ -177,8 +177,6 @@ function ProjectPage() {
                 { status: newStatus }, 
                 { headers: { Authorization: `Bearer ${token}` } }
             );
-            // 성공 후 서버에서 소켓을 통해 변경사항을 브로드캐스트할 것입니다.
-            
         } catch (error) {
             console.error("드래그 업데이트 실패", error);
             // 실패 시 원복
@@ -200,18 +198,16 @@ function ProjectPage() {
         setProjectData(prevData => {
             if (!prevData) return prevData;
             
-            const newTasks = prevData.tasks.map(t => 
+            // 🚨 [안정성 강화] 업데이트 전 유효하지 않은 요소 제거
+            const safeTasks = prevData.tasks.filter(t => t && t.id); 
+            const newTasks = safeTasks.map(t => 
                 t.id === updatedTask.id ? updatedTask : t
             );
             return { ...prevData, tasks: newTasks };
         });
         
         setSelectedTask(updatedTask); // 모달의 내용도 갱신
-        
-        // 주의: 이 시점에서 백엔드가 소켓을 통해 변경사항을 브로드캐스트해야 다른 사용자에게도 반영됩니다.
-        // 현재는 onUpdate={fetchProjectDetails} 대신 onUpdate={handleModalUpdate}를 사용할 경우입니다.
-        // 만약 기존처럼 onUpdate={fetchProjectDetails}를 쓴다면 이 로직은 불필요하지만,
-        // 실시간 업데이트를 위해 onUpdate={fetchProjectDetails} 대신 소켓을 사용해야 합니다.
+        // 백엔드가 소켓을 브로드캐스트 하므로 다른 사용자에게도 실시간 반영됩니다.
     }
 
 
@@ -246,8 +242,10 @@ function ProjectPage() {
             <DragDropContext onDragEnd={onDragEnd}>
                 <div className="kanban-board">
                     {Object.entries(STATUS_COLUMNS).map(([statusKey, statusLabel]) => {
-                        // 🚨 [필수] tasks 배열을 필터링하여 Column을 구성합니다.
-                        const tasksInColumn = projectData.tasks.filter(t => t.status === statusKey);
+                        // 🚨 [핵심 수정 3] 렌더링 직전에 tasks 배열을 필터링하여 null/undefined 요소 제거
+                        const safeTasks = projectData.tasks.filter(t => t && t.id); 
+                        
+                        const tasksInColumn = safeTasks.filter(t => t.status === statusKey);
                         return (
                             <div key={statusKey} className="kanban-column">
                                 <h3 className={`column-header header-${statusKey.replace(' ', '-').toLowerCase()}`}>
@@ -261,8 +259,8 @@ function ProjectPage() {
                                             {...provided.droppableProps}
                                         >
                                             {tasksInColumn
-                                                .slice() // 사본 생성
-                                                .sort((a, b) => b.id - a.id) // ID 내림차순 정렬 (최신 Task가 위에 오도록)
+                                                .slice()
+                                                .sort((a, b) => b.id - a.id)
                                                 .map((task, index) => (
                                                     <Draggable key={task.id} draggableId={task.id.toString()} index={index}>
                                                         {(provided, snapshot) => (
@@ -300,7 +298,6 @@ function ProjectPage() {
                     task={selectedTask}
                     members={projectData.members}
                     onClose={() => setIsModalOpen(false)}
-                    // 🚨 [수정] 모달 업데이트 시 전체 새로고침 대신 로컬 상태 업데이트 함수 사용
                     onUpdate={handleModalUpdate}
                 />
             )}
