@@ -13,6 +13,12 @@ const STATUS_COLUMNS = {
     'Done': '완료'
 };
 
+// 배열 내 Task 객체의 유효성을 확인하는 헬퍼 함수
+const filterSafeTasks = (tasks) => {
+    if (!Array.isArray(tasks)) return [];
+    return tasks.filter(t => t && t.id);
+}
+
 function ProjectPage() {
     const { projectId } = useParams();
     const navigate = useNavigate();
@@ -38,8 +44,8 @@ function ProjectPage() {
             });
             const data = res.data.details;
             
-            // 초기 로드 시 null/undefined Task 제거
-            const safeTasks = (data.tasks || []).filter(t => t && t.id);
+            // 🚨 [안정화] 초기 로드 시 null/undefined Task 제거
+            const safeTasks = filterSafeTasks(data.tasks);
             setProjectData({ ...data, tasks: safeTasks });
             
             setHeaderTitle(data.project.name);
@@ -69,7 +75,8 @@ function ProjectPage() {
                 setProjectData(prevData => {
                     if (!prevData) return prevData;
                     
-                    let newTasks = prevData.tasks.filter(t => t && t.id); 
+                    // 🚨 [핵심 안정화] 갱신 전에 배열 내 유효하지 않은 요소 제거
+                    let newTasks = filterSafeTasks(prevData.tasks); 
                     const taskIndex = newTasks.findIndex(t => t.id === updatedTask.id);
                     
                     if (taskIndex > -1) {
@@ -85,9 +92,11 @@ function ProjectPage() {
                         newTasks.push(updatedTask);
                     }
                     
-                    const uniqueTasks = Array.from(new Set(newTasks.map(t => t && t.id))).map(id => newTasks.find(t => t.id === id));
+                    // 최종 필터링 및 중복 제거
+                    const uniqueTasks = Array.from(new Set(newTasks.map(t => t.id)))
+                                          .map(id => newTasks.find(t => t.id === id));
                     
-                    return { ...prevData, tasks: uniqueTasks.filter(t => t && t.id) }; // 최종 반환 시에도 필터링
+                    return { ...prevData, tasks: filterSafeTasks(uniqueTasks) }; // 최종 반환 시 헬퍼 함수 사용
                 });
                 
                 setSelectedTask(prevSelected => {
@@ -129,9 +138,9 @@ function ProjectPage() {
             setProjectData(prevData => {
                 if (!prevData) return prevData;
                 
-                const safeTasks = prevData.tasks.filter(t => t && t.id); 
+                const safeTasks = filterSafeTasks(prevData.tasks); 
                 const newTasks = [...safeTasks, createdTask];
-                return { ...prevData, tasks: newTasks.filter(t => t && t.id) }; // 반환 시 필터링
+                return { ...prevData, tasks: filterSafeTasks(newTasks) }; // 반환 시 필터링
             });
             
         } catch (error) {
@@ -150,7 +159,7 @@ function ProjectPage() {
 
         const newStatus = destination.droppableId;
         
-        const safeTasksBeforeDrag = projectData.tasks.filter(t => t && t.id);
+        const safeTasksBeforeDrag = filterSafeTasks(projectData.tasks);
         const taskToUpdate = safeTasksBeforeDrag.find(t => t.id.toString() === draggableId);
         if (!taskToUpdate) return;
         
@@ -160,7 +169,7 @@ function ProjectPage() {
         const updatedTasks = safeTasksBeforeDrag.map(task => 
             task.id.toString() === draggableId ? { ...task, status: newStatus } : task
         );
-        setProjectData(prev => ({ ...prev, tasks: updatedTasks.filter(t => t && t.id) })); // 반환 시 필터링
+        setProjectData(prev => ({ ...prev, tasks: filterSafeTasks(updatedTasks) })); // 반환 시 필터링
 
         try {
             await axios.patch(`${API_URL}/api/tasks/${draggableId}`, 
@@ -173,7 +182,7 @@ function ProjectPage() {
             const rollbackTasks = safeTasksBeforeDrag.map(task => 
                 task.id.toString() === draggableId ? { ...task, status: originalStatus } : task
             );
-            setProjectData(prev => ({ ...prev, tasks: rollbackTasks.filter(t => t && t.id) })); // 반환 시 필터링
+            setProjectData(prev => ({ ...prev, tasks: filterSafeTasks(rollbackTasks) })); // 반환 시 필터링
         }
     };
 
@@ -187,11 +196,11 @@ function ProjectPage() {
         setProjectData(prevData => {
             if (!prevData) return prevData;
             
-            const safeTasks = prevData.tasks.filter(t => t && t.id); 
+            const safeTasks = filterSafeTasks(prevData.tasks); 
             const newTasks = safeTasks.map(t => 
                 (t.id === updatedTask.id && updatedTask && updatedTask.id) ? updatedTask : t
             );
-            return { ...prevData, tasks: newTasks.filter(t => t && t.id) }; // 반환 시 필터링
+            return { ...prevData, tasks: filterSafeTasks(newTasks) }; // 반환 시 필터링
         });
         
         setSelectedTask(updatedTask); 
@@ -202,6 +211,9 @@ function ProjectPage() {
     // 렌더링
     // ----------------------------------------------------------------------
     if (loading) return <div className="loading">로딩 중...</div>;
+    // 🚨 [안정화] tasks 배열에 Array.isArray 검사 후 filterSafeTasks 적용
+    const renderableTasks = filterSafeTasks(projectData?.tasks); 
+
     if (!projectData || !Array.isArray(projectData.tasks)) return <div>데이터 로드 실패 또는 데이터 없음</div>;
 
     return (
@@ -229,9 +241,9 @@ function ProjectPage() {
             <DragDropContext onDragEnd={onDragEnd}>
                 <div className="kanban-board">
                     {Object.entries(STATUS_COLUMNS).map(([statusKey, statusLabel]) => {
-                        // 🚨 [최종 안정화] 렌더링 직전 유효하지 않은 요소 필터링
-                        const tasksInColumn = projectData.tasks
-                            .filter(t => t && t.id && t.status === statusKey); 
+                        // 🚨 [최종 방어] filterSafeTasks를 사용하여 유효성 확보
+                        const tasksInColumn = renderableTasks
+                            .filter(t => t.status === statusKey); 
                         
                         return (
                             <div key={statusKey} className="kanban-column">
@@ -249,7 +261,7 @@ function ProjectPage() {
                                                 .slice()
                                                 .sort((a, b) => b.id - a.id)
                                                 .map((task, index) => {
-                                                    // 🚨 [핵심 방어] map 내부에서 다시 한 번 유효성 검사 (200 라인 주변 방어)
+                                                    // 🚨 [마지막 방어선] Draggable 바로 앞에서 null 체크 (프로덕션 200라인 방어)
                                                     if (!task || !task.id) return null; 
 
                                                     return (
