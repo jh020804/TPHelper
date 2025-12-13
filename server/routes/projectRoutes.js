@@ -71,15 +71,14 @@ router.get('/:projectId', authMiddleware, async (req, res) => {
 
         const [project] = await connection.execute('SELECT * FROM projects WHERE id=?', [projectId]);
         
-        // Task 목록 조회 (t.assignee_id가 NULL일 경우에도 안전하게 조회)
+        // Task 목록 조회
         const [tasks] = await connection.execute('SELECT t.*, u.name as assignee_name FROM tasks t LEFT JOIN users u ON t.assignee_id = u.id WHERE t.project_id = ?', [projectId]);
         
-        // 🚨 [안정화] 프론트엔드로 보내기 전에 Tasks 배열 필터링
+        // 🚨 [안정화] Tasks 배열 필터링
         const safeTasks = filterSafeTasks(tasks); 
         
         const [teamMembers] = await connection.execute('SELECT u.id, u.name, u.email FROM project_members pm JOIN users u ON pm.user_id = u.id WHERE pm.project_id = ? AND pm.status = "active"', [projectId]);
 
-        // 🚨 [수정] 필터링된 safeTasks 배열을 응답에 포함
         res.json({ details: { project: project[0], tasks: safeTasks, members: teamMembers } });
     } catch (error) {
         console.error('Project Details Load Error:', error);
@@ -94,13 +93,12 @@ router.post('/:projectId/tasks', authMiddleware, async (req, res) => {
     let connection;
     try {
         const { projectId } = req.params;
-        // 🚨 [수정] assignee_id를 body에서 받도록 설정 (TaskModal에서 사용할 수 있음)
         const { title, content, status, due_date, assignee_id } = req.body;
         const userId = req.user.userId;
 
         connection = await mysql.createConnection(dbConfig);
         
-        // 1. DB INSERT 실행 (assignee_id 포함)
+        // 1. DB INSERT 실행
         const [result] = await connection.execute(
             'INSERT INTO tasks (project_id, title, content, status, due_date, created_by, assignee_id) VALUES (?, ?, ?, ?, ?, ?, ?)', 
             [projectId, title || '', content || '', status || 'To Do', due_date || null, userId, assignee_id || null]
@@ -111,17 +109,18 @@ router.post('/:projectId/tasks', authMiddleware, async (req, res) => {
         const [tasks] = await connection.execute(`
             SELECT 
                 t.id, t.title, t.content, t.status, t.due_date, t.project_id, t.created_at,
+                t.created_by,             // 🚨 [수정] created_by (작성자 ID) 추가
                 u.name as assignee_name 
             FROM tasks t 
             LEFT JOIN users u ON t.assignee_id = u.id 
             WHERE t.id = ?
         `, [taskId]);
         
-        // 🚨 [안정화] Task 조회 결과 필터링 및 유효성 확보
+        // 🚨 [안정화] Task 조회 결과 필터링
         const safeTasks = filterSafeTasks(tasks);
         const newTask = safeTasks.length > 0 ? safeTasks[0] : null;
 
-        // 3. 소켓을 통해 다른 사용자에게 알림 (newTask가 유효한 경우만)
+        // 3. 소켓을 통해 다른 사용자에게 알림 (io.to는 본인 포함 모두에게 보냄)
         const io = req.app.get('io');
         if (io && newTask) {
             io.to(String(projectId)).emit('taskUpdated', newTask);
