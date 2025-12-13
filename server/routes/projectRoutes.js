@@ -4,6 +4,12 @@ const mysql = require('mysql2/promise');
 const authMiddleware = require('../authMiddleware');
 const dbConfig = require('../config/db');
 
+// Task 배열의 유효성을 검사하는 헬퍼 함수 (필요한 경우 배열이 아닌 곳에서도 사용)
+const filterSafeTasks = (tasks) => {
+    if (!Array.isArray(tasks)) return [];
+    return tasks.filter(t => t && t.id);
+};
+
 // 1. 내 프로젝트 목록 조회 (수락한 'active' 상태만 조회)
 router.get('/', authMiddleware, async (req, res) => {
     let connection;
@@ -18,6 +24,7 @@ router.get('/', authMiddleware, async (req, res) => {
         );
         res.json({ projects: rows });
     } catch (error) {
+        console.error('Project List Error:', error);
         res.status(500).json({ message: '서버 에러' });
     } finally {
         if (connection) await connection.end();
@@ -41,6 +48,7 @@ router.post('/', authMiddleware, async (req, res) => {
         res.status(201).json({ projectId, name });
     } catch (error) {
         if (connection) await connection.rollback();
+        console.error('Project Creation Error:', error);
         res.status(500).json({ message: '생성 실패' });
     } finally {
         if (connection) await connection.end();
@@ -62,7 +70,12 @@ router.get('/:projectId', authMiddleware, async (req, res) => {
         if (members.length === 0) return res.status(403).json({ message: '접근 권한이 없습니다.' });
 
         const [project] = await connection.execute('SELECT * FROM projects WHERE id=?', [projectId]);
+        
+        // Task 목록 조회
         const [tasks] = await connection.execute('SELECT t.*, u.name as assignee_name FROM tasks t LEFT JOIN users u ON t.assignee_id = u.id WHERE t.project_id = ?', [projectId]);
+        
+        // 🚨 [핵심 수정 1] 프론트엔드로 보내기 전에 Tasks 배열 필터링
+        const safeTasks = filterSafeTasks(tasks); 
         
         const [teamMembers] = await connection.execute(
             `SELECT u.id, u.name, u.email, u.profile_image 
@@ -72,8 +85,10 @@ router.get('/:projectId', authMiddleware, async (req, res) => {
             [projectId]
         );
 
-        res.json({ details: { project: project[0], tasks: tasks, members: teamMembers } });
+        // 🚨 [수정] 필터링된 safeTasks 배열을 응답에 포함
+        res.json({ details: { project: project[0], tasks: safeTasks, members: teamMembers } });
     } catch (error) {
+        console.error('Project Details Load Error:', error);
         res.status(500).json({ message: '상세 정보 로드 실패' });
     } finally {
         if (connection) await connection.end();
@@ -107,7 +122,9 @@ router.post('/:projectId/tasks', authMiddleware, async (req, res) => {
             WHERE t.id = ?
         `, [taskId]);
         
-        const newTask = tasks[0];
+        // 🚨 [핵심 수정 2] Task 조회 결과에 필터링을 적용하고, 유효한 Task만 사용
+        const safeTasks = filterSafeTasks(tasks);
+        const newTask = safeTasks.length > 0 ? safeTasks[0] : null;
 
         // 3. 소켓을 통해 다른 사용자에게 알림
         const io = req.app.get('io');
@@ -119,7 +136,7 @@ router.post('/:projectId/tasks', authMiddleware, async (req, res) => {
         // 4. 프론트엔드가 기대하는 Task 객체를 응답에 포함
         res.status(201).json({ 
             message: '업무 생성 성공',
-            task: newTask // 🚨 이 부분이 프론트엔드의 즉시 반영을 위해 필수입니다.
+            task: newTask // 🚨 newTask가 null일 수도 있지만, 프론트엔드는 여기서 유효성을 체크해야 함
         }); 
         
     } catch (error) {
