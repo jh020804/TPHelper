@@ -4,12 +4,6 @@ const mysql = require('mysql2/promise');
 const authMiddleware = require('../authMiddleware');
 const dbConfig = require('../config/db');
 
-// Task 배열의 유효성을 검사하는 헬퍼 함수 (필요한 경우 배열이 아닌 곳에서도 사용)
-const filterSafeTasks = (tasks) => {
-    if (!Array.isArray(tasks)) return [];
-    return tasks.filter(t => t && t.id);
-};
-
 // 1. 내 프로젝트 목록 조회 (수락한 'active' 상태만 조회)
 router.get('/', authMiddleware, async (req, res) => {
     let connection;
@@ -24,7 +18,6 @@ router.get('/', authMiddleware, async (req, res) => {
         );
         res.json({ projects: rows });
     } catch (error) {
-        console.error('Project List Error:', error);
         res.status(500).json({ message: '서버 에러' });
     } finally {
         if (connection) await connection.end();
@@ -48,7 +41,6 @@ router.post('/', authMiddleware, async (req, res) => {
         res.status(201).json({ projectId, name });
     } catch (error) {
         if (connection) await connection.rollback();
-        console.error('Project Creation Error:', error);
         res.status(500).json({ message: '생성 실패' });
     } finally {
         if (connection) await connection.end();
@@ -62,7 +54,7 @@ router.get('/:projectId', authMiddleware, async (req, res) => {
         const { projectId } = req.params;
         connection = await mysql.createConnection(dbConfig);
         
-        // (권한 확인 로직)
+        // 권한 확인 (active 상태인 멤버만 접근 가능)
         const [members] = await connection.execute(
             'SELECT * FROM project_members WHERE project_id=? AND user_id=? AND status="active"', 
             [projectId, req.user.userId]
@@ -70,84 +62,35 @@ router.get('/:projectId', authMiddleware, async (req, res) => {
         if (members.length === 0) return res.status(403).json({ message: '접근 권한이 없습니다.' });
 
         const [project] = await connection.execute('SELECT * FROM projects WHERE id=?', [projectId]);
-        
-        // Task 목록 조회
         const [tasks] = await connection.execute('SELECT t.*, u.name as assignee_name FROM tasks t LEFT JOIN users u ON t.assignee_id = u.id WHERE t.project_id = ?', [projectId]);
-        
-        // 🚨 [핵심 수정 1] 프론트엔드로 보내기 전에 Tasks 배열 필터링
-        const safeTasks = filterSafeTasks(tasks); 
-        
-        const [teamMembers] = await connection.execute(
-            `SELECT u.id, u.name, u.email, u.profile_image 
-             FROM project_members pm 
-             JOIN users u ON pm.user_id = u.id 
-             WHERE pm.project_id = ? AND pm.status = "active"`,
-            [projectId]
-        );
+        // 멤버 목록은 active인 사람만 보여줌
+        const [teamMembers] = await connection.execute('SELECT u.id, u.name, u.email FROM project_members pm JOIN users u ON pm.user_id = u.id WHERE pm.project_id = ? AND pm.status = "active"', [projectId]);
 
-        // 🚨 [수정] 필터링된 safeTasks 배열을 응답에 포함
-        res.json({ details: { project: project[0], tasks: safeTasks, members: teamMembers } });
+        res.json({ details: { project: project[0], tasks: tasks, members: teamMembers } });
     } catch (error) {
-        console.error('Project Details Load Error:', error);
         res.status(500).json({ message: '상세 정보 로드 실패' });
     } finally {
         if (connection) await connection.end();
     }
 });
 
-// 4. 업무 생성 (수정된 로직)
+// 4. 업무 생성
 router.post('/:projectId/tasks', authMiddleware, async (req, res) => {
     let connection;
     try {
         const { projectId } = req.params;
-        const { title, content, status, due_date, assignee_id } = req.body;
-        const userId = req.user.userId; // 현재 사용자 ID
-
+        const { content, status, due_date } = req.body;
         connection = await mysql.createConnection(dbConfig);
-        
-        // 1. DB INSERT 실행 (title 포함)
-        const [result] = await connection.execute(
-            'INSERT INTO tasks (project_id, title, content, status, due_date, created_by) VALUES (?, ?, ?, ?, ?, ?)', 
-            [projectId, title || '', content || '', status || 'To Do', due_date || null, userId]
-        );
-        const taskId = result.insertId;
-
-        // 2. 생성된 Task 상세 정보 조회 (프론트엔드 반영 및 소켓 전송을 위해)
-        const [tasks] = await connection.execute(`
-            SELECT 
-                t.id, t.title, t.content, t.status, t.due_date, t.project_id, t.created_at,
-                u.name as assignee_name 
-            FROM tasks t 
-            LEFT JOIN users u ON t.assignee_id = u.id 
-            WHERE t.id = ?
-        `, [taskId]);
-        
-        // 🚨 [핵심 수정 2] Task 조회 결과에 필터링을 적용하고, 유효한 Task만 사용
-        const safeTasks = filterSafeTasks(tasks);
-        const newTask = safeTasks.length > 0 ? safeTasks[0] : null;
-
-        // 3. 소켓을 통해 다른 사용자에게 알림
-        const io = req.app.get('io');
-        if (io && newTask) {
-            io.to(String(projectId)).emit('taskUpdated', newTask);
-            console.log(`[Socket] New Task ${taskId} broadcasted to room ${projectId}`);
-        }
-        
-        // 4. 프론트엔드가 기대하는 Task 객체를 응답에 포함
-        res.status(201).json({ 
-            message: '업무 생성 성공',
-            task: newTask // 🚨 newTask가 null일 수도 있지만, 프론트엔드는 여기서 유효성을 체크해야 함
-        }); 
-        
+        await connection.execute('INSERT INTO tasks (project_id, content, status, due_date) VALUES (?, ?, ?, ?)', [projectId, content, status || 'To Do', due_date || null]);
+        res.status(201).json({ message: '업무 생성 성공' });
     } catch (error) {
-        console.error('Task Creation Error:', error);
-        res.status(500).json({ message: '업무 생성 실패', error: error.message });
+        res.status(500).json({ message: '업무 생성 실패' });
     } finally {
         if (connection) await connection.end();
     }
 });
 
-// 5. 팀원 초대 (상태를 'pending'으로 저장)
+// 🚨 5. 팀원 초대 (상태를 'pending'으로 저장)
 router.post('/:projectId/invite', authMiddleware, async (req, res) => {
     let connection;
     try {
@@ -181,7 +124,7 @@ router.post('/:projectId/invite', authMiddleware, async (req, res) => {
     }
 });
 
-// 6. 나에게 온 초대 목록 조회
+// 🚨 6. 나에게 온 초대 목록 조회
 router.get('/invitations/me', authMiddleware, async (req, res) => {
     let connection;
     try {
@@ -204,7 +147,7 @@ router.get('/invitations/me', authMiddleware, async (req, res) => {
     }
 });
 
-// 7. 초대 수락/거절
+// 🚨 7. 초대 수락/거절
 router.post('/invitations/:projectId/respond', authMiddleware, async (req, res) => {
     let connection;
     try {
@@ -238,6 +181,7 @@ router.post('/invitations/:projectId/respond', authMiddleware, async (req, res) 
 
 // 8. 채팅 불러오기
 router.get('/:projectId/chat', authMiddleware, async (req, res) => {
+    // (기존 코드 유지)
     let connection;
     try {
         const { projectId } = req.params;
@@ -253,6 +197,7 @@ router.get('/:projectId/chat', authMiddleware, async (req, res) => {
 
 // 9. 채팅 저장
 router.post('/:projectId/chat', authMiddleware, async (req, res) => {
+    // (기존 코드 유지)
     let connection;
     try {
         const { projectId } = req.params;
