@@ -82,7 +82,6 @@ function ProjectPage() {
             const handleTaskUpdated = (updatedTask) => {
                 
                 // 🚨 [핵심 수정] 내가 생성/수정한 이벤트는 무시하여 중복 출력을 방지합니다.
-                // (내가 보낸 이벤트는 HTTP 응답 후 로컬 상태에 이미 반영되었으므로)
                 if (myUserId && updatedTask.created_by && updatedTask.created_by === myUserId) {
                     console.log("Filtered my own task update from socket:", updatedTask.id);
                     return;
@@ -99,16 +98,13 @@ function ProjectPage() {
                     if (taskIndex > -1) {
                         const oldTask = newTasks[taskIndex];
                         
-                        // 상태가 변경되었으면 기존 위치에서 삭제하고 리스트 끝에 다시 추가
                         if (oldTask.status !== updatedTask.status) {
                             newTasks.splice(taskIndex, 1);
                             newTasks.push(updatedTask);
                         } else {
-                            // 상태가 같으면 데이터만 업데이트
                             newTasks[taskIndex] = updatedTask;
                         }
                     } else {
-                        // Task가 목록에 없으면 (다른 사람이 생성했거나 새로운 Task) 추가
                         newTasks.push(updatedTask);
                     }
                     
@@ -132,7 +128,7 @@ function ProjectPage() {
                 socket.off('taskUpdated', handleTaskUpdated);
             };
         }
-    }, [projectId, fetchProjectDetails, socket, myUserId]); // 의존성 배열에 myUserId 추가
+    }, [projectId, fetchProjectDetails, socket, myUserId]); 
 
     // ----------------------------------------------------------------------
     // Task 추가 로직 (addTask)
