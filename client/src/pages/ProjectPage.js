@@ -24,6 +24,17 @@ function ProjectPage() {
     const navigate = useNavigate();
     const token = localStorage.getItem('token');
     
+    // 🚨 [추가] myUserId 추출 로직
+    let myUserId = null;
+    if (token) {
+        try {
+            const payload = JSON.parse(atob(token.split('.')[1]));
+            myUserId = payload.userId;
+        } catch (e) {
+            console.error("Token decoding failed:", e);
+        }
+    }
+    
     const { setHeaderTitle, setMembers, setCurrentProjectId, socket } = useOutletContext(); 
 
     const [projectData, setProjectData] = useState(null);
@@ -44,7 +55,6 @@ function ProjectPage() {
             });
             const data = res.data.details;
             
-            // 초기 로드 시 null/undefined Task 제거
             const safeTasks = filterSafeTasks(data.tasks);
             setProjectData({ ...data, tasks: safeTasks });
             
@@ -70,6 +80,14 @@ function ProjectPage() {
             socket.emit('joinRoom', projectId);
 
             const handleTaskUpdated = (updatedTask) => {
+                
+                // 🚨 [핵심 수정] 내가 생성/수정한 이벤트는 무시하여 중복 출력을 방지합니다.
+                // (내가 보낸 이벤트는 HTTP 응답 후 로컬 상태에 이미 반영되었으므로)
+                if (myUserId && updatedTask.created_by && updatedTask.created_by === myUserId) {
+                    console.log("Filtered my own task update from socket:", updatedTask.id);
+                    return;
+                }
+                
                 if (!updatedTask || !updatedTask.id) return; 
 
                 setProjectData(prevData => {
@@ -81,20 +99,23 @@ function ProjectPage() {
                     if (taskIndex > -1) {
                         const oldTask = newTasks[taskIndex];
                         
+                        // 상태가 변경되었으면 기존 위치에서 삭제하고 리스트 끝에 다시 추가
                         if (oldTask.status !== updatedTask.status) {
                             newTasks.splice(taskIndex, 1);
                             newTasks.push(updatedTask);
                         } else {
+                            // 상태가 같으면 데이터만 업데이트
                             newTasks[taskIndex] = updatedTask;
                         }
                     } else {
+                        // Task가 목록에 없으면 (다른 사람이 생성했거나 새로운 Task) 추가
                         newTasks.push(updatedTask);
                     }
                     
                     const uniqueTasks = Array.from(new Set(newTasks.map(t => t && t.id)))
                                           .map(id => newTasks.find(t => t.id === id));
                     
-                    return { ...prevData, tasks: filterSafeTasks(uniqueTasks) }; // 최종 반환 시 헬퍼 함수 사용
+                    return { ...prevData, tasks: filterSafeTasks(uniqueTasks) };
                 });
                 
                 setSelectedTask(prevSelected => {
@@ -111,7 +132,7 @@ function ProjectPage() {
                 socket.off('taskUpdated', handleTaskUpdated);
             };
         }
-    }, [projectId, fetchProjectDetails, socket]);
+    }, [projectId, fetchProjectDetails, socket, myUserId]); // 의존성 배열에 myUserId 추가
 
     // ----------------------------------------------------------------------
     // Task 추가 로직 (addTask)
@@ -132,7 +153,7 @@ function ProjectPage() {
             
             const createdTask = res.data.task; 
             
-            // Task 생성 즉시 반영 로직
+            // 🚨 HTTP 응답을 받은 후 로컬 상태에 직접 추가 (첫 번째 출력)
             setProjectData(prevData => {
                 if (!prevData) return prevData;
                 
@@ -191,13 +212,20 @@ function ProjectPage() {
     
     // TaskModal에서 내용이 업데이트된 후 호출됨
     const handleModalUpdate = (updatedTask) => {
+        if (!updatedTask || !updatedTask.id) {
+             console.error("Modal updated with invalid task data:", updatedTask);
+             return;
+        }
+
         setProjectData(prevData => {
             if (!prevData) return prevData;
             
             const safeTasks = filterSafeTasks(prevData.tasks); 
+            
             const newTasks = safeTasks.map(t => 
-                (t.id === updatedTask.id && updatedTask && updatedTask.id) ? updatedTask : t
+                (t.id === updatedTask.id) ? updatedTask : t
             );
+            
             return { ...prevData, tasks: filterSafeTasks(newTasks) }; 
         });
         
@@ -210,8 +238,8 @@ function ProjectPage() {
     // ----------------------------------------------------------------------
     if (loading) return <div className="loading">로딩 중...</div>;
     
-    // 🚨 [최종 안정화] 렌더링 시 사용할 유효한 Task 목록 준비
     const renderableTasks = filterSafeTasks(projectData?.tasks); 
+    const isModalVisible = isModalOpen && selectedTask && selectedTask.id;
 
     if (!projectData || !Array.isArray(projectData.tasks)) return <div>데이터 로드 실패 또는 데이터 없음</div>;
 
@@ -240,7 +268,6 @@ function ProjectPage() {
             <DragDropContext onDragEnd={onDragEnd}>
                 <div className="kanban-board">
                     {Object.entries(STATUS_COLUMNS).map(([statusKey, statusLabel]) => {
-                        // 유효한 Task 목록에서 필터링
                         const tasksInColumn = renderableTasks
                             .filter(t => t.status === statusKey); 
                         
@@ -258,13 +285,15 @@ function ProjectPage() {
                                         >
                                             {tasksInColumn
                                                 .slice()
-                                                .sort((a, b) => b.id - a.id)
+                                                .sort((a, b) => {
+                                                    if (!a || !a.id) return 1; 
+                                                    if (!b || !b.id) return -1; 
+                                                    return b.id - a.id; 
+                                                })
                                                 .map((task, index) => {
-                                                    // 🚨 [궁극의 방어] map 내부에서 다시 한 번 유효성 검사 (199 라인 방어)
                                                     if (!task || !task.id) return null; 
 
                                                     return (
-                                                        // key와 draggableId를 String(task.id)로 명시적 변환
                                                         <Draggable key={String(task.id)} draggableId={String(task.id)} index={index}>
                                                             {(provided, snapshot) => (
                                                                 <div
@@ -297,11 +326,14 @@ function ProjectPage() {
                 </div>
             </DragDropContext>
 
-            {isModalOpen && selectedTask && (
+            {isModalVisible && (
                 <TaskModal 
                     task={selectedTask}
                     members={projectData.members}
-                    onClose={() => setIsModalOpen(false)}
+                    onClose={() => {
+                         setIsModalOpen(false);
+                         setSelectedTask(null);
+                    }}
                     onUpdate={handleModalUpdate}
                 />
             )}
