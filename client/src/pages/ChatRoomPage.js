@@ -13,8 +13,18 @@ function ChatRoomPage() {
     const [messages, setMessages] = useState([]);
     const [messageInput, setMessageInput] = useState('');
     const messagesEndRef = useRef(null);
+    
     const token = localStorage.getItem('token');
-    const myUserId = JSON.parse(atob(token.split('.')[1])).userId; // 토큰에서 userId 추출
+    let myUserId = null;
+    if (token) {
+        try {
+            // 🚨 토큰에서 myUserId 안전하게 추출
+            const payload = JSON.parse(atob(token.split('.')[1]));
+            myUserId = payload.userId;
+        } catch (e) {
+            console.error("Token decoding failed:", e);
+        }
+    }
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -22,6 +32,7 @@ function ChatRoomPage() {
 
     // 1. 데이터 로드 (API)
     const fetchChatData = useCallback(async () => {
+        // ... (fetchChatData 로직은 동일)
         try {
             const projectRes = await axios.get(`${API_URL}/api/projects/${projectId}`, { 
                 headers: { Authorization: `Bearer ${token}` } 
@@ -56,32 +67,33 @@ function ChatRoomPage() {
             const msgProjectId = data.projectId || data.project_id;
             
             if (String(msgProjectId) === String(projectId)) {
-                // 🚨 [핵심 수정] 1: 자기 자신이 보낸 메시지가 아닐 경우에만 상태에 추가
-                // (자신이 보낸 메시지는 handleSendMessage에서 이미 로컬 상태에 추가했으므로)
+                // 🚨 [핵심 필터링] 자기 자신이 보낸 메시지(user_id가 일치)는 로컬 상태에 추가하지 않음
                 if (data.user_id !== myUserId) {
                     setMessages((prev) => [...prev, data]);
                     setTimeout(scrollToBottom, 100);
+                } else {
+                     console.log("Filtered my own message from socket:", data);
                 }
             }
         };
 
         socket.on('receiveMessage', handleReceiveMessage);
 
-        // 🚨 [핵심 수정] 2: 컴포넌트 언마운트 시 리스너 해제 (중복 리스너 방지)
+        // 🚨 [핵심 수정] 클린업 함수: 컴포넌트 언마운트 시 리스너 해제 (중복 리스너 방지)
         return () => {
             socket.off('receiveMessage', handleReceiveMessage);
         };
-    }, [socket, projectId, myUserId]); // 의존성 배열에 myUserId 추가
+    }, [socket, projectId, myUserId]);
 
     // 3. 메시지 전송
     const handleSendMessage = async () => {
         if (!messageInput.trim()) return;
 
-        const messageToSend = messageInput; // 현재 입력 값 저장
-        setMessageInput(''); // 입력창 초기화 (낙관적 UI)
+        const messageToSend = messageInput;
+        setMessageInput(''); // 입력창 초기화
 
         try {
-            // (1) DB 저장 요청
+            // (1) DB 저장 요청 (서버는 저장 후 최종 메시지 객체를 반환)
             const response = await axios.post(`${API_URL}/api/projects/${projectId}/chat`, 
                 { content: messageToSend }, 
                 { headers: { Authorization: `Bearer ${token}` } }
@@ -89,13 +101,12 @@ function ChatRoomPage() {
             
             const savedMessage = response.data; // 서버에서 반환된 최종 메시지 객체
 
-            // 🚨 [핵심 수정] 3: 서버 응답을 받은 후, 소켓 리스너를 통하지 않고 로컬 상태에 직접 추가
+            // 🚨 [핵심 수정] 서버 응답을 받은 후, 로컬 상태에 직접 추가 (첫 번째 출력)
             setMessages((prev) => [...prev, savedMessage]);
             setTimeout(scrollToBottom, 100);
             
             // (2) 소켓 전송 (다른 사용자에게 알리기 위함)
             if (socket) {
-                // savedMessage에는 user_id가 포함되어 있으므로, 이를 이용해 수신자가 필터링할 수 있음
                 socket.emit('sendMessage', { 
                     ...savedMessage, 
                     projectId: projectId
@@ -124,8 +135,7 @@ function ChatRoomPage() {
                         <div className={`message-bubble ${isMentioned(msg.content) ? 'message-mentioned' : ''}`}>
                             {!isMyMessage(msg.user_name) && <div className="message-sender">{msg.user_name}</div>}
                             <div className="message-content">{msg.content}</div>
-                            {/* timestamp 필드가 존재하면 표시, 아니면 현재 시간 사용 */}
-                            <div className="message-time">{formatTime(msg.timestamp || new Date().toISOString())}</div>
+                            <div className="message-time">{formatTime(msg.timestamp)}</div>
                         </div>
                     </div>
                 ))}
