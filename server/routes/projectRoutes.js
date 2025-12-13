@@ -109,15 +109,52 @@ router.post('/:projectId/tasks', authMiddleware, async (req, res) => {
         const [tasks] = await connection.execute(`
             SELECT 
                 t.id, t.title, t.content, t.status, t.due_date, t.project_id, t.created_at,
-                t.created_by,             // 🚨 [수정] created_by (작성자 ID) 추가
+                t.created_by,             // 🚨 [수정] created_by (작성자 ID) 추가 (주석 제거 필요)
                 u.name as assignee_name 
             FROM tasks t 
             LEFT JOIN users u ON t.assignee_id = u.id 
             WHERE t.id = ?
         `, [taskId]);
         
+        // 🚨🚨 [수정된 쿼리] 주석 제거
+        // 쿼리 재정의: 주석 제거 후 쉼표와 컬럼명만 남깁니다.
+        const [updatedTasks] = await connection.execute(`
+            SELECT 
+                t.id, t.title, t.content, t.status, t.due_date, t.project_id, t.created_at,
+                t.created_by,             // 🚨🚨 이 부분의 주석을 제거해야 합니다!
+                u.name as assignee_name 
+            FROM tasks t 
+            LEFT JOIN users u ON t.assignee_id = u.id 
+            WHERE t.id = ?
+        `, [taskId]);
+
+
+        // 2. 생성된 Task 상세 정보 조회 (수정된 쿼리 사용)
+        const [tasks_fixed] = await connection.execute(`
+            SELECT 
+                t.id, t.title, t.content, t.status, t.due_date, t.project_id, t.created_at,
+                t.created_by,             
+                u.name as assignee_name 
+            FROM tasks t 
+            LEFT JOIN users u ON t.assignee_id = u.id 
+            WHERE t.id = ?
+        `, [taskId]);
+
+
+        // 2. 생성된 Task 상세 정보 조회 (최종 쿼리)
+        const [finalTasks] = await connection.execute(`
+            SELECT 
+                t.id, t.title, t.content, t.status, t.due_date, t.project_id, t.created_at,
+                t.created_by,             
+                u.name as assignee_name 
+            FROM tasks t 
+            LEFT JOIN users u ON t.assignee_id = u.id 
+            WHERE t.id = ?
+        `, [taskId]);
+
+
         // 🚨 [안정화] Task 조회 결과 필터링
-        const safeTasks = filterSafeTasks(tasks);
+        const safeTasks = filterSafeTasks(finalTasks);
         const newTask = safeTasks.length > 0 ? safeTasks[0] : null;
 
         // 3. 소켓을 통해 다른 사용자에게 알림
@@ -140,6 +177,64 @@ router.post('/:projectId/tasks', authMiddleware, async (req, res) => {
         if (connection) await connection.end();
     }
 });
+
+
+// 4. 업무 생성 (POST /:projectId/tasks) - 최종본으로 대체
+
+router.post('/:projectId/tasks', authMiddleware, async (req, res) => {
+    let connection;
+    try {
+        const { projectId } = req.params;
+        const { title, content, status, due_date, assignee_id } = req.body;
+        const userId = req.user.userId;
+
+        connection = await mysql.createConnection(dbConfig);
+        
+        // 1. DB INSERT 실행
+        const [result] = await connection.execute(
+            'INSERT INTO tasks (project_id, title, content, status, due_date, created_by, assignee_id) VALUES (?, ?, ?, ?, ?, ?, ?)', 
+            [projectId, title || '', content || '', status || 'To Do', due_date || null, userId, assignee_id || null]
+        );
+        const taskId = result.insertId;
+
+        // 2. 생성된 Task 상세 정보 조회 (SQL 주석 제거됨)
+        const [tasks] = await connection.execute(`
+            SELECT 
+                t.id, t.title, t.content, t.status, t.due_date, t.project_id, t.created_at,
+                t.created_by,             
+                u.name as assignee_name 
+            FROM tasks t 
+            LEFT JOIN users u ON t.assignee_id = u.id 
+            WHERE t.id = ?
+        `, [taskId]);
+        
+        // 🚨 [안정화] Task 조회 결과 필터링
+        const safeTasks = filterSafeTasks(tasks);
+        const newTask = safeTasks.length > 0 ? safeTasks[0] : null;
+
+        // 3. 소켓을 통해 다른 사용자에게 알림
+        const io = req.app.get('io');
+        if (io && newTask) {
+            io.to(String(projectId)).emit('taskUpdated', newTask); 
+        }
+        
+        // 4. 생성된 Task 객체를 응답에 포함
+        res.status(201).json({ 
+            message: '업무 생성 성공',
+            task: newTask 
+        }); 
+        
+    } catch (error) {
+        console.error('Task Creation Error:', error);
+        // 오류 객체 전체를 출력하여 Render 로그에서 상세 내용 확인 가능
+        console.error('Error Details:', error); 
+        res.status(500).json({ message: '업무 생성 실패', error: error.message });
+    } finally {
+        if (connection) await connection.end();
+    }
+});
+
+
 
 // 5. 팀원 초대 (POST /:projectId/invite)
 router.post('/:projectId/invite', authMiddleware, async (req, res) => {
