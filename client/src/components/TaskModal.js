@@ -5,26 +5,32 @@ import './TaskModal.css';
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001';
 
 function TaskModal({ task, members, onClose, onUpdate }) {
-    const [title, setTitle] = useState(task.title || '');
-    const [content, setContent] = useState(task.content || '');
-    const [status, setStatus] = useState(task.status || 'To Do');
-    const [dueDate, setDueDate] = useState(task.due_date ? task.due_date.split('T')[0] : '');
-    const [assigneeId, setAssigneeId] = useState(task.assignee_id || '');
+    // 🚨 [수정] task가 null/undefined일 경우를 대비하여 초기 상태 방어
+    const [title, setTitle] = useState(task?.title || '');
+    const [content, setContent] = useState(task?.content || '');
+    const [status, setStatus] = useState(task?.status || 'To Do');
+    const [dueDate, setDueDate] = useState(task?.due_date ? task.due_date.split('T')[0] : '');
+    // assignee_id가 null 또는 0일 경우 빈 문자열로 초기화
+    const [assigneeId, setAssigneeId] = useState(task?.assignee_id || ''); 
     const [files, setFiles] = useState([]);
     const token = localStorage.getItem('token');
 
     // 모달이 열릴 때마다 데이터 동기화
     useEffect(() => {
-        setTitle(task.title || '');
-        setContent(task.content || '');
-        setStatus(task.status || 'To Do');
-        setDueDate(task.due_date ? task.due_date.split('T')[0] : '');
-        setAssigneeId(task.assignee_id || '');
-        fetchFiles();
+        // task 객체가 유효한 경우에만 상태를 설정
+        if (task && task.id) {
+            setTitle(task.title || '');
+            setContent(task.content || '');
+            setStatus(task.status || 'To Do');
+            setDueDate(task.due_date ? task.due_date.split('T')[0] : '');
+            setAssigneeId(task.assignee_id || '');
+            fetchFiles();
+        }
         // eslint-disable-next-line
-    }, [task.id]);
+    }, [task?.id]); // task?.id가 변경될 때만 실행
 
     const fetchFiles = async () => {
+        if (!task || !task.id) return; // Task ID가 없으면 실행 중단
         try {
             const res = await axios.get(`${API_URL}/api/tasks/${task.id}/files`, {
                 headers: { Authorization: `Bearer ${token}` }
@@ -39,24 +45,32 @@ function TaskModal({ task, members, onClose, onUpdate }) {
         if (!title.trim()) return alert("제목을 입력해주세요.");
 
         try {
-            console.log("저장 요청 데이터:", { title, content, status }); // 🚨 디버깅
+            const dataToSend = { 
+                title: title, 
+                content: content, 
+                status: status,
+                // 빈 문자열이면 null로 보내서 DB의 NULL 허용 필드 처리
+                due_date: dueDate || null, 
+                assignee_id: assigneeId || null
+            };
             
-            // 🚨 수정: 모든 필드 명시적 전송
-            await axios.patch(`${API_URL}/api/tasks/${task.id}`, 
-                { 
-                    title: title,       // 제목
-                    content: content,   // 내용
-                    status: status,
-                    due_date: dueDate,
-                    assignee_id: assigneeId
-                },
+            // 🚨 [핵심 수정] 1. 서버 응답을 받아야 함 (서버는 최신 Task 객체를 반환해야 함)
+            const res = await axios.patch(`${API_URL}/api/tasks/${task.id}`, 
+                dataToSend,
                 { headers: { Authorization: `Bearer ${token}` } }
             );
+            
             alert('저장되었습니다.');
-            onUpdate();
+            
+            // 🚨 [핵심 수정] 2. onUpdate 호출 시, 서버로부터 받은 최신 Task 객체를 전달
+            // (서버가 Task 객체를 반환한다고 가정: TaskRoutes.js에서 응답을 수정해야 함)
+            const updatedTask = res.data.task || { ...task, ...dataToSend, assignee_id: assigneeId }; 
+
+            onUpdate(updatedTask); // ProjectPage.js의 handleModalUpdate(updatedTask) 호출
             onClose();
+
         } catch (error) {
-            console.error("저장 실패:", error);
+            console.error("저장 실패:", error.response?.data?.message || error.message);
             alert('저장 실패: 서버 로그를 확인해주세요.');
         }
     };
@@ -68,7 +82,7 @@ function TaskModal({ task, members, onClose, onUpdate }) {
                 headers: { Authorization: `Bearer ${token}` }
             });
             alert('삭제되었습니다.');
-            onUpdate();
+            onUpdate({ deleted: true, taskId: task.id }); // 삭제 이벤트를 알림
             onClose();
         } catch (error) {
             alert('삭제 실패');
@@ -101,6 +115,9 @@ function TaskModal({ task, members, onClose, onUpdate }) {
             alert('파일 업로드 실패');
         }
     };
+    
+    // task 객체가 유효하지 않으면 렌더링하지 않음 (이중 방어)
+    if (!task || !task.id) return null;
 
     return (
         <div className="modal-overlay" onClick={onClose}>
@@ -151,7 +168,8 @@ function TaskModal({ task, members, onClose, onUpdate }) {
                         <select value={assigneeId} onChange={(e) => setAssigneeId(e.target.value)}>
                             <option value="">(미배정)</option>
                             {members.map(m => (
-                                <option key={m.id} value={m.id}>{m.name}</option>
+                                // 🚨 [안정화] members 배열의 유효성 체크
+                                <option key={m?.id || 'null'} value={m?.id || ''}>{m?.name || '유저 없음'}</option>
                             ))}
                         </select>
                     </div>
