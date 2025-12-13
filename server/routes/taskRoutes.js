@@ -58,7 +58,6 @@ router.patch('/:taskId', authMiddleware, async (req, res) => {
             return res.json({ message: '업데이트할 내용이 없습니다.' });
         }
         
-        // WHERE 절의 taskId를 params의 마지막에 추가
         params.push(taskId);
 
         connection = await mysql.createConnection(dbConfig);
@@ -72,7 +71,6 @@ router.patch('/:taskId', authMiddleware, async (req, res) => {
         );
         
         // 2. 수정된 데이터 조회 및 소켓 전송을 위한 준비
-        // 🚨🚨 [필수] 소켓 전송을 위해 project_id와 최신 task 데이터를 조회합니다.
         const [ut] = await connection.execute(`
             SELECT 
                 t.id, t.title, t.content, t.status, t.due_date, t.project_id, 
@@ -88,9 +86,17 @@ router.patch('/:taskId', authMiddleware, async (req, res) => {
             const updatedTask = ut[0];
             const projectId = String(updatedTask.project_id);
             
-            // 3. 소켓을 통해 변경 사항 알림
-            // req.app.get('io')를 통해 index.js에 등록된 소켓 인스턴스를 가져옵니다.
-            req.app.get('io').to(projectId).emit('taskUpdated', updatedTask);
+            // 🚨 [수정] io 인스턴스를 명시적으로 가져와서 사용
+            const io = req.app.get('io');
+            
+            if (io) {
+                // 3. 소켓을 통해 변경 사항 알림
+                io.to(projectId).emit('taskUpdated', updatedTask);
+                console.log(`[Socket Broadcast] Task ${taskId} updated to room ${projectId}`);
+            } else {
+                // 🚨 [디버깅 로그] io 인스턴스가 없는 경우를 대비
+                console.warn('[Socket Warning] Socket.io instance not found. Real-time update failed.');
+            }
         }
         
         res.json({ message: '업무 업데이트 성공' });
